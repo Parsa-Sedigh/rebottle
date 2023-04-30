@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/Parsa-Sedigh/rebottle/internal/password"
 	"time"
 )
@@ -21,6 +22,9 @@ const (
 	StatusPickupCancelledByUser   = "cancelled_by_user"
 	StatusPickupCancelledBySystem = "cancelled_by_system"
 	StatusPickupDone              = "done"
+
+	StatusUserEmailInactive = "inactive"
+	StatusUserEmailActive   = "active"
 )
 
 type User struct {
@@ -32,6 +36,7 @@ type User struct {
 	Password       string    `json:"-"`
 	Credit         uint16    `json:"credit,omitempty"`
 	Status         string    `json:"status,omitempty"` // TODO: how convert sql enums to go code?
+	EmailStatus    string    `json:"email_status,omitempty"`
 	Province       string    `json:"province,omitempty"`
 	City           string    `json:"city,omitempty"`
 	Street         string    `json:"street,omitempty"`
@@ -72,6 +77,12 @@ type Truck struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
 
+func genGetUserByFieldQuery(field string) string {
+	return fmt.Sprintf(`SELECT id, phone, first_name, last_name, email, password, credit, status, province, city,
+			street, alley, COALESCE(apartment_plate, 0), COALESCE(apartment_no, 0), postal_code, created_at, updated_at
+			FROM "user" WHERE %s = $1`, field)
+}
+
 func (m *Models) scanUserRow(userRow *sql.Row, u *User) error {
 	err := userRow.Scan(
 		&u.ID,
@@ -105,10 +116,7 @@ func (m *Models) GetUserByPhone(phone string) (User, error) {
 
 	var u User
 
-	row := m.DB.QueryRowContext(ctx, `
-		SELECT id, phone, first_name, last_name, email, password, credit, status, province, city,
-		       street, alley, COALESCE(apartment_plate, 0), COALESCE(apartment_no, 0), postal_code, created_at, updated_at
-		FROM "user" WHERE phone = $1`, phone)
+	row := m.DB.QueryRowContext(ctx, genGetUserByFieldQuery("phone"), phone)
 
 	err := m.scanUserRow(row, &u)
 	if err != nil {
@@ -124,11 +132,22 @@ func (m *Models) GetUserByID(id int) (User, error) {
 
 	var u User
 
-	query := `SELECT id, phone, first_name, last_name, email, password, credit, status, province, city,
-		       street, alley, COALESCE(apartment_plate, 0), COALESCE(apartment_no, 0), postal_code, created_at, updated_at
-		FROM "user" WHERE id = $1`
+	row := m.DB.QueryRowContext(ctx, genGetUserByFieldQuery("id"), id)
+	err := m.scanUserRow(row, &u)
+	if err != nil {
+		return User{}, err
+	}
 
-	row := m.DB.QueryRowContext(ctx, query, id)
+	return u, nil
+}
+
+func (m *Models) GetUserByEmail(email string) (User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var u User
+
+	row := m.DB.QueryRowContext(ctx, genGetUserByFieldQuery("id"), email)
 	err := m.scanUserRow(row, &u)
 	if err != nil {
 		return User{}, err
@@ -277,16 +296,16 @@ func (m *Models) UpdatePickup(params UpdatePickupParams) (Pickup, error) {
 	return p, nil
 }
 
-func (m *Models) GetUserPickups(id int) ([]Pickup, error) {
+func (m *Models) GetUserPickups(userID int) ([]Pickup, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var pickups []Pickup
 
 	rows, err := m.DB.QueryContext(ctx, `
-		SELECT id, truck_id, user_id, weight, time, note, status, created_at, updated_at
+		SELECT id, COALESCE(truck_id, 0), user_id, weight, time, note, status, created_at, updated_at
 		FROM pickup
-		WHERE user_id = $1`, id)
+		WHERE user_id = $1`, userID)
 	if err != nil {
 		return pickups, nil
 	}

@@ -15,7 +15,7 @@ import (
 
 // TODO: Filters
 func (app *application) GetPickups(w http.ResponseWriter, r *http.Request) {
-	pickups, err := app.DB.GetUserPickups(1)
+	pickups, err := app.DB.GetUserPickups(int(r.Context().Value("JWTData").(appjwt.JWTData).UserID))
 	if err != nil {
 		app.badRequest(w, r, err)
 		return
@@ -338,4 +338,32 @@ func (app *application) GetUser(w http.ResponseWriter, r *http.Request) {
 		Error: false,
 		Data:  u,
 	})
+}
+
+func (app *application) SendResetPasswordOTP(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Email string `json:"email"`
+	}
+
+	app.readJSON(w, r, &payload)
+
+	u, err := app.DB.GetUserByEmail(payload.Email)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest) // TODO: test badRequest method here
+		return
+	}
+
+	if u.EmailStatus != models.StatusUserEmailActive {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Set OTP for resetting password in session
+
+	// TODO: send OTP SMS for resetting password
+}
+
+func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	// TODO: Check OTP with the one in session and if it was correct, reset the password and update it in DB
+
 }
