@@ -6,6 +6,7 @@ import (
 	"github.com/Parsa-Sedigh/rebottle/internal/appjwt"
 	"github.com/Parsa-Sedigh/rebottle/internal/models"
 	"github.com/Parsa-Sedigh/rebottle/internal/otp"
+	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
@@ -161,8 +162,10 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = app.Validate.Struct(payload)
-	if err != nil {
-		app.errorJSON(w, err, http.StatusBadRequest)
+	errs := validation.TranslateError(err, app.Translator)
+
+	if errs != nil {
+		app.writeJSON(w, http.StatusBadRequest, errs)
 		return
 	}
 

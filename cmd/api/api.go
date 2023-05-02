@@ -8,6 +8,7 @@ import (
 	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -23,12 +24,13 @@ type config struct {
 }
 
 type application struct {
-	config   config
-	logger   *zap.Logger
-	version  string
-	DB       models.Models
-	Session  *scs.SessionManager
-	Validate *validator.Validate
+	config     config
+	logger     *zap.Logger
+	version    string
+	DB         models.Models
+	Session    *scs.SessionManager
+	Validate   *validator.Validate
+	Translator ut.Translator
 }
 
 func (app *application) serve() error {
@@ -78,17 +80,18 @@ func main() {
 	session.Lifetime = 2 * time.Minute
 	session.Store = memstore.New()
 
-	validate, err := validation.Register()
+	validate, trans, err := validation.Register()
 	if err != nil {
 		sugar.Fatal(err)
 	}
 
 	app := application{
-		config:   cfg,
-		logger:   logger,
-		DB:       models.NewModels(conn),
-		Session:  session,
-		Validate: validate,
+		config:     cfg,
+		logger:     logger,
+		DB:         models.NewModels(conn),
+		Session:    session,
+		Validate:   validate,
+		Translator: trans,
 	}
 
 	err = app.serve()
