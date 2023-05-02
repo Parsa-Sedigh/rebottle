@@ -1,0 +1,8 @@
+type: string
+description: status of a pickup
+enum:
+  - waiting
+  - in_process
+  - cancelled_by_user
+  - cancelled_by_system
+  - done

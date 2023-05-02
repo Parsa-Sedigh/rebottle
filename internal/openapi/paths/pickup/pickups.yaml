@@ -1,0 +1,28 @@
+get:
+  tags:
+    - pickup
+  summary: "Get all pickups of user"
+  description: "Get all pickups of user"
+  responses:
+    "200":
+post:
+  tags:
+    - pickup
+  summary: "Create a new pickup"
+  description: "Create a new pickup"
+  responses:
+    "200":
+put:
+  tags:
+    - pickup
+  summary: "Update a pickup"
+  description: "Update a pickup"
+  responses:
+    "200":
+patch:
+  tags:
+    - pickup
+  summary: "Cancel a pickup"
+  description: "Cancel a pickup"
+  responses:
+    "200":

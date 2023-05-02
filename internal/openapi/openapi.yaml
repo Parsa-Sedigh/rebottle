@@ -1,0 +1,80 @@
+openapi: 3.0.3
+info:
+  title: Title
+  description: Title
+  version: 1.0.0
+servers:
+  - url: 'https://rebottle.swagger.com/v1'
+tags:
+  - name: user
+  - name: auth
+  - name: pickup
+    description: user's pickup
+
+components:
+  schemas:
+    PickupStatus:
+      $ref: './schemas/PickupStatus.yaml'
+
+  responses:
+    GeneralResponse:
+      $ref: "./responses/GeneralResponse.yaml"
+    # Todo: can not import all of the responses here? So we would have responses.$ref here.
+
+
+
+
+paths:
+  #  /user:
+  #    $ref: './paths/user/user.yaml'
+  #
+  #  /signup:
+  #    $ref: './paths/signup/signup.yaml'
+  #
+  #  /verify-signup:
+  #    $ref: './paths/verify-signup/verify-signup.yaml'
+
+  /login:
+    post:
+      tags:
+        - auth
+      summary: "login user"
+      description: "login user"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: boolean
+                message:
+                  type: string
+
+
+      responses:
+        "200":
+          description: "Successful login"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+
+
+#    $ref: './paths/login/login.yaml'
+
+
+#  /pickup:
+#    $ref: './paths/pickup/pickups.yaml'
+#
+#  "/pickup/{pickupId}":
+#    $ref: './paths/pickup/pickup.yaml'
+

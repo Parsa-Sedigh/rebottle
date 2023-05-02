@@ -1,0 +1,7 @@
+post:
+  tags:
+    - auth
+  summary: "verify user signup through OTP"
+  description: "verify user signup through OTP"
+  responses:
+    "200":

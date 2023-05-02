@@ -1,0 +1,28 @@
+post:
+  tags:
+    - auth
+  summary: "signup user and send OTP"
+  description: "signup user and send OTP"
+  parameters:
+    - name: phone
+      in: path
+      description: "phone number of the user"
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: "success response"
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: boolean
+              message:
+                type: string
+              data:
+                type: object
+    "400":
+      $ref: '../../responses/GeneralResponse.yaml'

@@ -1,0 +1,7 @@
+get:
+  tags:
+    - user
+  summary: "Get the data of a user"
+  description: "Get the data of a user"
+  responses:
+    "200":

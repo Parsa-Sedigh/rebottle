@@ -1,0 +1,12 @@
+description: "Generic error response"
+content:
+  application/json:
+    schema:
+      type: object
+      properties:
+        error:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object

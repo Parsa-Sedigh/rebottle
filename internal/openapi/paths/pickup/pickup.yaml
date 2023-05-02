@@ -1,0 +1,7 @@
+get:
+  tags:
+    - pickup
+  summary: "Get a pickup"
+  description: "Get a pickup"
+  responses:
+    "200":
