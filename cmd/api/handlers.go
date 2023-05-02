@@ -13,6 +13,43 @@ import (
 	"time"
 )
 
+type CreatePickupRequest struct {
+	UserID int     `json:"user_id" validate:"required"`
+	Time   float64 `json:"time" validate:"required"`
+	Weight float64 `json:"weight" validate:"required"`
+	Note   string  `json:"note"`
+}
+
+type UpdatePickupRequest struct {
+	ID     int       `json:"id" validate:"required"`
+	Time   time.Time `json:"time" validate:"required"`
+	Weight float32   `json:"weight" validate:"required"`
+	Note   string    `json:"note"`
+}
+
+type VerifyUserSignupRequest struct {
+	Phone string `json:"phone" validate:"required,min=11,max=11,phone"`
+	OTP   string `json:"otp" validate:"required,min=6,max=6"`
+}
+
+type VerifyUserEmailRequest struct {
+	Email string `json:"email" validate:"required,email"`
+	Hash  string `json:"hash" validate:"required"`
+}
+
+type LoginRequest struct {
+	Phone    string `json:"phone" validate:"required,min=11,max=11,phone"`
+	Password string `json:"password" validate:"required,min=6"`
+}
+
+type CancelPickupRequest struct {
+	ID int `json:"id" validate:"required"`
+}
+
+type SendResetPasswordOTPRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
 // TODO: Filters
 func (app *application) GetPickups(w http.ResponseWriter, r *http.Request) {
 	pickups, err := app.DB.GetUserPickups(int(r.Context().Value("JWTData").(appjwt.JWTData).UserID))
@@ -47,12 +84,7 @@ func (app *application) GetPickup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) CreatePickup(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		UserID int     `json:"user_id"`
-		Time   float64 `json:"time"`
-		Weight float64 `json:"weight"`
-		Note   string  `json:"note"`
-	}
+	var payload CreatePickupRequest
 
 	err := app.readJSON(w, r, &payload)
 	if err != nil {
@@ -89,12 +121,7 @@ func (app *application) CreatePickup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) UpdatePickup(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		ID     int       `json:"id"`
-		Time   time.Time `json:"time"`
-		Weight float32   `json:"weight"`
-		Note   string    `json:"note"`
-	}
+	var payload UpdatePickupRequest
 
 	err := app.readJSON(w, r, &payload)
 	if err != nil {
@@ -125,9 +152,15 @@ func (app *application) UpdatePickup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
-	var payload models.User
+	var payload models.SignupUserRequest
 
 	err := app.readJSON(w, r, &payload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	err = app.Validate.Struct(payload)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
@@ -155,7 +188,7 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	app.Session.Put(r.Context(), "otp", otp.GenerateOTP(5))
+	app.Session.Put(r.Context(), "otp", otp.GenerateOTP(6))
 
 	// TODO: send the validation email and SMS, so that user can verify both, but the SMS verification is necessary for the user to be registered
 
@@ -172,10 +205,7 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) VerifyUserSignup(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Phone string `json:"phone,omitempty"`
-		OTP   string `json:"otp,omitempty"`
-	}
+	var payload VerifyUserSignupRequest
 
 	err := app.readJSON(w, r, &payload)
 	if err != nil {
@@ -238,10 +268,7 @@ func (app *application) authenticateToken(r *http.Request) (*models.User, error)
 }
 
 func (app *application) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Email string `json:"email,omitempty"`
-		Hash  string `json:"hash,omitempty"`
-	}
+	var payload VerifyUserEmailRequest
 
 	err := app.readJSON(w, r, &payload)
 	if err != nil {
@@ -251,10 +278,7 @@ func (app *application) VerifyUserEmail(w http.ResponseWriter, r *http.Request) 
 }
 
 func (app *application) Login(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Phone    string `json:"phone,omitempty"`
-		Password string `json:"password,omitempty"`
-	}
+	var payload LoginRequest
 
 	err := app.readJSON(w, r, &payload)
 	if err != nil {
@@ -285,9 +309,7 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) CancelPickup(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		ID int `json:"id"`
-	}
+	var payload CancelPickupRequest
 
 	err := app.readJSON(w, r, &payload)
 	if err != nil {
@@ -341,9 +363,7 @@ func (app *application) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) SendResetPasswordOTP(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Email string `json:"email"`
-	}
+	var payload SendResetPasswordOTPRequest
 
 	app.readJSON(w, r, &payload)
 

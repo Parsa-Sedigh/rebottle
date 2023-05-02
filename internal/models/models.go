@@ -28,58 +28,73 @@ const (
 )
 
 type User struct {
-	ID             int       `json:"id,omitempty"`
-	Phone          string    `json:"phone,omitempty"`
-	FirstName      string    `json:"first_name,omitempty"`
-	LastName       string    `json:"last_name,omitempty"`
-	Email          string    `json:"email,omitempty"`
+	ID             int       `json:"id"`
+	Phone          string    `json:"phone"`
+	FirstName      string    `json:"first_name"`
+	LastName       string    `json:"last_name"`
+	Email          string    `json:"email"`
 	Password       string    `json:"-"`
-	Credit         uint16    `json:"credit,omitempty"`
-	Status         string    `json:"status,omitempty"` // TODO: how convert sql enums to go code?
-	EmailStatus    string    `json:"email_status,omitempty"`
-	Province       string    `json:"province,omitempty"`
-	City           string    `json:"city,omitempty"`
-	Street         string    `json:"street,omitempty"`
-	Alley          string    `json:"alley,omitempty"`
-	ApartmentPlate uint16    `json:"apartment_plate,omitempty"`
-	ApartmentNo    uint16    `json:"apartment_no,omitempty"`
-	PostalCode     string    `json:"postal_code,omitempty"`
-	CreatedAt      time.Time `json:"created_at,omitempty"` // TODO: how convert sql timestamp to go code?
-	UpdatedAt      time.Time `json:"updated_at,omitempty"`
+	Credit         uint16    `json:"credit"`
+	Status         string    `json:"status"` // TODO: how convert sql enums to go code?
+	EmailStatus    string    `json:"email_status"`
+	Province       string    `json:"province"`
+	City           string    `json:"city"`
+	Street         string    `json:"street"`
+	Alley          string    `json:"alley"`
+	ApartmentPlate uint16    `json:"apartment_plate"`
+	ApartmentNo    uint16    `json:"apartment_no"`
+	PostalCode     string    `json:"postal_code"`
+	CreatedAt      time.Time `json:"created_at"` // TODO: how convert sql timestamp to go code?
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type SignupUserRequest struct {
+	Phone          string `json:"phone" validate:"required,min=11,max=11,phone"`
+	FirstName      string `json:"first_name" validate:"required,min=3"`
+	LastName       string `json:"last_name" validate:"required,min=3"`
+	Email          string `json:"email,omitempty" validate:"email"`
+	Password       string `json:"password" validate:"min=6"`
+	Province       string `json:"province" validate:"required"`
+	City           string `json:"city" validate:"required"`
+	Street         string `json:"street" validate:"required"`
+	Alley          string `json:"alley,omitempty"`
+	ApartmentPlate int    `json:"apartment_plate,omitempty" validate:"required"`
+	ApartmentNo    uint16 `json:"apartment_no,omitempty" validate:"required"`
+	PostalCode     string `json:"postal_code" validate:"required"`
 }
 
 type Pickup struct {
-	ID        int       `json:"id,omitempty"`
+	ID        int       `json:"id"`
 	TruckID   int       `json:"truck_id"`
-	UserID    int       `json:"user_id,omitempty"`
-	Time      time.Time `json:"time,omitempty"`
-	Weight    float32   `json:"weight,omitempty"`
-	Note      string    `json:"note,omitempty"`
-	Status    string    `json:"status,omitempty"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	UserID    int       `json:"user_id"`
+	Time      time.Time `json:"time"`
+	Weight    float32   `json:"weight"`
+	Note      string    `json:"note"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Driver struct {
-	ID        int       `json:"id,omitempty"`
-	UserID    int       `json:"user_id,omitempty"`
-	LicenseNo string    `json:"license_no,omitempty"`
-	Status    string    `json:"status,omitempty"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	LicenseNo string    `json:"license_no"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Truck struct {
-	ID        int       `json:"id,omitempty"`
-	PlateNo   string    `json:"plate_no,omitempty"`
-	Status    string    `json:"status,omitempty"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	ID        int       `json:"id"`
+	PlateNo   string    `json:"plate_no"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func genGetUserByFieldQuery(field string) string {
 	return fmt.Sprintf(`SELECT id, phone, first_name, last_name, email, password, credit, status, province, city,
-			street, alley, COALESCE(apartment_plate, 0), COALESCE(apartment_no, 0), postal_code, created_at, updated_at
+			street, alley, apartment_plate, apartment_no, postal_code, created_at, updated_at
 			FROM "user" WHERE %s = $1`, field)
 }
 
@@ -156,7 +171,7 @@ func (m *Models) GetUserByEmail(email string) (User, error) {
 	return u, nil
 }
 
-func (m *Models) InsertUser(u User) (int, error) {
+func (m *Models) InsertUser(u SignupUserRequest) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -172,8 +187,8 @@ func (m *Models) InsertUser(u User) (int, error) {
 		       street, alley, apartment_plate, apartment_no, postal_code)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 	`
-	_, err = m.DB.ExecContext(ctx, stmt, u.Phone, u.FirstName, u.LastName, u.Email, hashedPassword, u.Credit, u.Province, u.City,
-		u.Street, u.Alley, sql.NullInt16{Int16: int16(u.ApartmentPlate)}, sql.NullInt16{Int16: int16(u.ApartmentNo)}, u.PostalCode)
+	_, err = m.DB.ExecContext(ctx, stmt, u.Phone, u.FirstName, u.LastName, u.Email, hashedPassword, 0, u.Province, u.City,
+		u.Street, u.Alley, u.ApartmentPlate, u.ApartmentNo, u.PostalCode)
 	if err != nil {
 		return 0, err
 	}
@@ -346,9 +361,9 @@ func (m *Models) CancelPickup(pickupID, userID int, byUser bool) error {
 
 	var status string
 	if byUser {
-		status = "cancelled_by_user"
+		status = StatusPickupCancelledByUser
 	} else {
-		status = "cancelled_by_system"
+		status = StatusPickupCancelledBySystem
 	}
 
 	stmt := `UPDATE pickup SET status = $1 WHERE id = $2 AND user_id = $3`

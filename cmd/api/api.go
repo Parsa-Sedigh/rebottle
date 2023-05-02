@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/Parsa-Sedigh/rebottle/internal/driver"
 	"github.com/Parsa-Sedigh/rebottle/internal/models"
+	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"log"
@@ -21,11 +23,12 @@ type config struct {
 }
 
 type application struct {
-	config  config
-	logger  *zap.Logger
-	version string
-	DB      models.Models
-	Session *scs.SessionManager
+	config   config
+	logger   *zap.Logger
+	version  string
+	DB       models.Models
+	Session  *scs.SessionManager
+	Validate *validator.Validate
 }
 
 func (app *application) serve() error {
@@ -75,11 +78,17 @@ func main() {
 	session.Lifetime = 2 * time.Minute
 	session.Store = memstore.New()
 
+	validate, err := validation.Register()
+	if err != nil {
+		sugar.Fatal(err)
+	}
+
 	app := application{
-		config:  cfg,
-		logger:  logger,
-		DB:      models.NewModels(conn),
-		Session: session,
+		config:   cfg,
+		logger:   logger,
+		DB:       models.NewModels(conn),
+		Session:  session,
+		Validate: validate,
 	}
 
 	err = app.serve()
