@@ -52,7 +52,7 @@ type SignupUserRequest struct {
 	Phone          string `json:"phone" validate:"required,min=11,max=11,phone"`
 	FirstName      string `json:"first_name" validate:"required,min=3"`
 	LastName       string `json:"last_name" validate:"required,min=3"`
-	Email          string `json:"email,omitempty" validate:"email"`
+	Email          string `json:"email,omitempty" validate:"omitempty,email"`
 	Password       string `json:"password" validate:"min=6"`
 	Province       string `json:"province" validate:"required"`
 	City           string `json:"city" validate:"required"`
@@ -175,7 +175,7 @@ func (m *Models) InsertUser(u SignupUserRequest) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	hashedPassword, err := password.HashPassword(u.Email)
+	hashedPassword, err := password.HashPassword(u.Password)
 	if err != nil {
 		return 0, err
 	}
