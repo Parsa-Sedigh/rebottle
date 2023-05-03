@@ -12,20 +12,25 @@ type JWTData struct {
 	UserID float64
 }
 
-func Generate(userID int) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"exp":    time.Now().Add(3 * time.Minute).Unix(),
+func Generate(userID int) (string, string, error) {
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"exp":    time.Now().Add(1 * time.Minute).Unix(),
+		"userID": userID,
+	})
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"exp":    time.Now().Add(2 * time.Minute).Unix(),
 		"userID": userID,
 	})
 
 	// Sign and get the complete encoded token as a string using the secret
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	accessTokenString, err := accessToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	refreshTokenString, err := refreshToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return tokenString, nil
+	return accessTokenString, refreshTokenString, nil
 }
 
 func Parse(tokenString string) (*jwt.Token, error) {
@@ -37,7 +42,6 @@ func Parse(tokenString string) (*jwt.Token, error) {
 
 		return []byte(os.Getenv("JWT_SECRET")), nil
 	})
-
 	if err != nil {
 		return token, err
 	}

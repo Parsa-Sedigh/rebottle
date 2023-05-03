@@ -504,3 +504,26 @@ func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check OTP with the one in session and if it was correct, reset the password and update it in DB
 
 }
+
+// NewAuthTokens generates a new pair of access and refresh tokens
+func (app *application) NewAuthTokens(w http.ResponseWriter, r *http.Request) {
+	var payload NewAuthTokensRequest
+
+	app.readJSON(w, r, &payload)
+	JWTData, err := appjwt.ExtractClaims(payload.RefreshToken)
+	if err != nil {
+		app.errorJSON(w, errors.New("you're unauthorized"), http.StatusUnauthorized)
+		return
+	}
+
+	accessToken, refreshToken, err := appjwt.Generate(int(JWTData.UserID))
+	if err != nil {
+		app.errorJSON(w, errors.New("you're unauthorized"), http.StatusUnauthorized)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, NewAuthTokensResponse{
+		RefreshToken: refreshToken,
+		AccessToken:  accessToken,
+	})
+}

@@ -16,6 +16,7 @@ func (app *application) routes() http.Handler {
 	mux.Post("/signup", app.SignupUser)
 	mux.Post("/verify-signup", app.VerifyUserSignup)
 	mux.Post("/login", app.Login)
+	mux.Post("/token", app.NewAuthTokens)
 
 	//////////////// private routes ////////////////
 	mux.Group(func(r chi.Router) {
