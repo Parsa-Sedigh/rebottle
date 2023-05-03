@@ -6,9 +6,10 @@ import (
 	"github.com/go-playground/validator/v10"
 	entranslations "github.com/go-playground/validator/v10/translations/en"
 	"regexp"
+	"strings"
 )
 
-const IranianPhoneRegExp = "/^09[0-9]{9}$/"
+const IranianPhoneRegExp = "^09[0-9]{9}$"
 
 func Register() (*validator.Validate, ut.Translator, error) {
 	validate := validator.New()
@@ -40,13 +41,15 @@ func TranslateError(err error, trans ut.Translator) map[string]string {
 		return nil
 	}
 
-	errs := make(map[string]string)
+	errors := make(map[string]string)
 
+	// TODO: How we can make the field names snake case here?
 	validatorErrs := err.(validator.ValidationErrors)
 
+	// TODO: Return both fa and en translation of errors. After all that's why we used ut.Translator at the first place!
 	for _, e := range validatorErrs {
-		errs[e.Field()] = e.Translate(trans)
+		errors[strings.ToLower(e.Field())] = e.Translate(trans)
 	}
 
-	return errs
+	return errors
 }

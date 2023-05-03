@@ -6,6 +6,7 @@ import (
 	"github.com/Parsa-Sedigh/rebottle/internal/appjwt"
 	"github.com/Parsa-Sedigh/rebottle/internal/models"
 	"github.com/Parsa-Sedigh/rebottle/internal/otp"
+	"github.com/Parsa-Sedigh/rebottle/internal/password"
 	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"github.com/go-chi/chi/v5"
 	"net/http"
@@ -15,17 +16,31 @@ import (
 )
 
 type CreatePickupRequest struct {
-	UserID int     `json:"user_id" validate:"required"`
-	Time   float64 `json:"time" validate:"required"`
-	Weight float64 `json:"weight" validate:"required"`
+	UserID int     `json:"user_id"`
+	Time   int64   `json:"time"`
+	Weight float64 `json:"weight"`
 	Note   string  `json:"note"`
 }
 
+type CreatePickupRequestValidation struct {
+	UserID int       `validate:"required"`
+	Time   time.Time `validate:"required,gt"`
+	Weight float64   `validate:"required"`
+	Note   string
+}
+
 type UpdatePickupRequest struct {
-	ID     int       `json:"id" validate:"required"`
-	Time   time.Time `json:"time" validate:"required"`
-	Weight float32   `json:"weight" validate:"required"`
-	Note   string    `json:"note"`
+	ID     int     `json:"id"`
+	Time   int64   `json:"time"`
+	Weight float32 `json:"weight"`
+	Note   string  `json:"note"`
+}
+
+type UpdatePickupRequestValidation struct {
+	ID     int     `validate:"required"`
+	Time   int64   `validate:"required,gt"`
+	Weight float32 `validate:"required"`
+	Note   string
 }
 
 type VerifyUserSignupRequest struct {
@@ -49,6 +64,33 @@ type CancelPickupRequest struct {
 
 type SendResetPasswordOTPRequest struct {
 	Email string `json:"email" validate:"required,email"`
+}
+
+type GetUserResponse struct {
+	ID             int    `json:"id"`
+	Phone          string `json:"phone"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	Email          string `json:"email"`
+	Credit         uint16 `json:"credit"`
+	Status         string `json:"status"`
+	EmailStatus    string `json:"email_status"`
+	Province       string `json:"province"`
+	City           string `json:"city"`
+	Street         string `json:"street"`
+	Alley          string `json:"alley"`
+	ApartmentPlate uint16 `json:"apartment_plate"`
+	ApartmentNo    uint16 `json:"apartment_no"`
+	PostalCode     string `json:"postal_code"`
+}
+
+type NewAuthTokensRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type NewAuthTokensResponse struct {
+	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
 }
 
 // TODO: Filters
@@ -93,11 +135,27 @@ func (app *application) CreatePickup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = app.Validate.Struct(CreatePickupRequestValidation{
+		UserID: payload.UserID,
+		Time:   time.UnixMilli(payload.Time),
+		Weight: payload.Weight,
+		Note:   payload.Note,
+	})
+	errTranslated := validation.TranslateError(err, app.Translator)
+	if errTranslated != nil {
+		app.writeJSON(w, http.StatusBadRequest, Resp{
+			Error:   true,
+			Message: "Some of the fields have error",
+			Data:    errTranslated,
+		})
+		return
+	}
+
 	var response Resp
 
 	p, err := app.DB.InsertPickup(models.Pickup{
 		UserID: payload.UserID,
-		Time:   time.UnixMilli(int64(payload.Time)),
+		Time:   time.UnixMilli(payload.Time),
 		Weight: float32(payload.Weight),
 		Note:   payload.Note,
 		Status: models.StatusPickupWaiting,
@@ -130,6 +188,22 @@ func (app *application) UpdatePickup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = app.Validate.Struct(UpdatePickupRequestValidation{
+		ID:     payload.ID,
+		Time:   payload.Time,
+		Weight: payload.Weight,
+		Note:   payload.Note,
+	})
+	errTranslated := validation.TranslateError(err, app.Translator)
+	if errTranslated != nil {
+		app.writeJSON(w, http.StatusBadRequest, Resp{
+			Error:   true,
+			Message: "Some of the fields have error",
+			Data:    errTranslated,
+		})
+		return
+	}
+
 	p, err := app.DB.GetPickup(payload.ID, int(r.Context().Value("JWTData").(appjwt.JWTData).UserID))
 	if err != nil {
 		app.badRequest(w, r, err)
@@ -139,7 +213,7 @@ func (app *application) UpdatePickup(w http.ResponseWriter, r *http.Request) {
 	updatedPickup, err := app.DB.UpdatePickup(models.UpdatePickupParams{
 		ID:     payload.ID,
 		UserID: p.UserID,
-		Time:   payload.Time,
+		Time:   time.UnixMilli(payload.Time),
 		Weight: payload.Weight,
 		Note:   payload.Note,
 		Status: p.Status,
@@ -162,10 +236,14 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = app.Validate.Struct(payload)
-	errs := validation.TranslateError(err, app.Translator)
+	errTranslated := validation.TranslateError(err, app.Translator)
 
-	if errs != nil {
-		app.writeJSON(w, http.StatusBadRequest, errs)
+	if errTranslated != nil {
+		app.writeJSON(w, http.StatusBadRequest, Resp{
+			Error:   true,
+			Message: "Some of the fields have error",
+			Data:    errTranslated,
+		})
 		return
 	}
 
@@ -176,8 +254,8 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if user exists and has a status other than inactive:
-	if user.ID > 0 && user.Status != "inactive" {
+	// if user exists:
+	if user.ID > 0 {
 		app.errorJSON(w, errors.New("user already exists"), http.StatusBadRequest)
 		return
 	}
@@ -193,7 +271,8 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 
 	app.Session.Put(r.Context(), "otp", otp.GenerateOTP(6))
 
-	// TODO: send the validation email and SMS, so that user can verify both, but the SMS verification is necessary for the user to be registered
+	/* TODO: send the validation email and SMS, so that user can verify both, but the SMS verification is necessary for the user to be registered.
+	We can use the message field of Resp type and make it to have fa and en.*/
 
 	resp := Resp{
 		Error:   false,
@@ -289,14 +368,32 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = app.Validate.Struct(payload)
+	errTranslated := validation.TranslateError(err, app.Translator)
+	if errTranslated != nil {
+		app.writeJSON(w, http.StatusBadRequest, Resp{
+			Error:   true,
+			Message: "Some of the fields have error",
+			Data:    errTranslated,
+		})
+		return
+	}
+
 	u, err := app.DB.GetUserByPhone(payload.Phone)
 	if err != nil {
-		app.errorJSON(w, err, http.StatusBadRequest)
+		app.errorJSON(w, errors.New("invalid credentials"), http.StatusBadRequest)
+		return
+	}
+
+	isPasswordCorrect := password.CheckPasswordHash(payload.Password, u.Password)
+
+	if !isPasswordCorrect {
+		app.errorJSON(w, errors.New("invalid credentials"), http.StatusBadRequest)
 		return
 	}
 
 	// TODO: Generate JWT and send it back (http cookie or in response?)
-	token, err := appjwt.Generate(u.ID)
+	accessToken, refreshToken, err := appjwt.Generate(u.ID)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
@@ -306,8 +403,9 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		Error:   false,
 		Message: "Authenticated",
 		Data: struct {
-			Token string `json:"token"`
-		}{Token: token},
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+		}{AccessToken: accessToken, RefreshToken: refreshToken},
 	})
 }
 
@@ -361,7 +459,23 @@ func (app *application) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	app.writeJSON(w, http.StatusOK, Resp{
 		Error: false,
-		Data:  u,
+		Data: GetUserResponse{
+			ID:             u.ID,
+			Phone:          u.Phone,
+			FirstName:      u.FirstName,
+			LastName:       u.LastName,
+			Email:          u.Email,
+			Credit:         u.Credit,
+			Status:         u.Status,
+			EmailStatus:    u.EmailStatus,
+			Province:       u.Province,
+			City:           u.City,
+			Street:         u.Street,
+			Alley:          u.Alley,
+			ApartmentPlate: u.ApartmentPlate,
+			ApartmentNo:    u.ApartmentNo,
+			PostalCode:     u.PostalCode,
+		},
 	})
 }
 

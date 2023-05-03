@@ -3,6 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/Parsa-Sedigh/rebottle/internal/driver"
 	"github.com/Parsa-Sedigh/rebottle/internal/models"
 	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
@@ -12,10 +17,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
-	"os"
-	"time"
 )
 
 type config struct {
