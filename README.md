@@ -1,11 +1,16 @@
 # Everyone can recycle! ♻️
 
 Todo:
+
+- [x] refresh token
+- [ ] graceful shutdown
 - [ ] validation
 - [ ] common format for validation error responses
-- [ ] microservices
-- [ ] queue(rabbit or NATS?)
-- [ ] fully document the api using openapi
-- [ ] deployment using K8S
+- [ ] use the zap logger
 - [ ] otp through sms using kavehnegar
 - [ ] which service for mailing?
+- [ ] microservices
+- [ ] queue(rabbit or NATS?)
+- [ ] observability (Prometheus)
+- [ ] fully document the api using openapi
+- [ ] deployment using K8S
