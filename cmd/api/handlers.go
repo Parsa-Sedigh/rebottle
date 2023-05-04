@@ -502,7 +502,7 @@ func (app *application) SendResetPasswordOTP(w http.ResponseWriter, r *http.Requ
 
 func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check OTP with the one in session and if it was correct, reset the password and update it in DB
-
+	// TODO: Should sending the OTP of resetting password be a separate step
 }
 
 // NewAuthTokens generates a new pair of access and refresh tokens
