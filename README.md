@@ -3,7 +3,7 @@
 Todo:
 
 - [x] refresh token
-- [ ] graceful shutdown
+- [x] graceful shutdown
 - [ ] validation
 - [ ] common format for validation error responses
 - [ ] use the zap logger
