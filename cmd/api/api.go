@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/gob"
 	"flag"
 	"fmt"
+	"github.com/Parsa-Sedigh/rebottle/pkg/env"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +21,6 @@ import (
 	"github.com/alexedwards/scs/v2/memstore"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
 
