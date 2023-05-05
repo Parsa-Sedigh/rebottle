@@ -3,17 +3,23 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/Parsa-Sedigh/rebottle/internal/appjwt"
 	"github.com/Parsa-Sedigh/rebottle/internal/models"
 	"github.com/Parsa-Sedigh/rebottle/internal/otp"
 	"github.com/Parsa-Sedigh/rebottle/internal/password"
-	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// TODO: Create a PhoneWithOTP struct and embed it where ever a phone and otp fields are used
+type PhoneWithOTP struct {
+	Phone string `json:"phone" validate:"required,min=11,max=11,phone"`
+	OTP   string `json:"otp" validate:"required,min=6,max=6,numeric"`
+}
 
 type CreatePickupRequest struct {
 	UserID int     `json:"user_id"`
@@ -45,7 +51,7 @@ type UpdatePickupRequestValidation struct {
 
 type VerifyUserSignupRequest struct {
 	Phone string `json:"phone" validate:"required,min=11,max=11,phone"`
-	OTP   string `json:"otp" validate:"required,min=6,max=6"`
+	OTP   string `json:"otp" validate:"required,min=6,max=6,numeric"`
 }
 
 type VerifyUserEmailRequest struct {
@@ -63,7 +69,7 @@ type CancelPickupRequest struct {
 }
 
 type SendResetPasswordOTPRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Phone string `json:"phone" validate:"required,min=11,max=11,phone"`
 }
 
 type GetUserResponse struct {
@@ -91,6 +97,14 @@ type NewAuthTokensRequest struct {
 type NewAuthTokensResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	AccessToken  string `json:"access_token"`
+}
+
+type VerifyResetPasswordOTPRequest struct {
+	OTP string `json:"otp" validate:"required,min=6,max=6,numeric"`
+}
+
+type CompleteResetPasswordRequest struct {
+	Password string `json:"password" validate:"required,min=6"`
 }
 
 // TODO: Filters
@@ -135,21 +149,12 @@ func (app *application) CreatePickup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.Validate.Struct(CreatePickupRequestValidation{
+	app.validatePayload(w, CreatePickupRequestValidation{
 		UserID: payload.UserID,
 		Time:   time.UnixMilli(payload.Time),
 		Weight: payload.Weight,
 		Note:   payload.Note,
 	})
-	errTranslated := validation.TranslateError(err, app.Translator)
-	if errTranslated != nil {
-		app.writeJSON(w, http.StatusBadRequest, Resp{
-			Error:   true,
-			Message: "Some of the fields have error",
-			Data:    errTranslated,
-		})
-		return
-	}
 
 	var response Resp
 
@@ -188,21 +193,12 @@ func (app *application) UpdatePickup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.Validate.Struct(UpdatePickupRequestValidation{
+	app.validatePayload(w, UpdatePickupRequestValidation{
 		ID:     payload.ID,
 		Time:   payload.Time,
 		Weight: payload.Weight,
 		Note:   payload.Note,
 	})
-	errTranslated := validation.TranslateError(err, app.Translator)
-	if errTranslated != nil {
-		app.writeJSON(w, http.StatusBadRequest, Resp{
-			Error:   true,
-			Message: "Some of the fields have error",
-			Data:    errTranslated,
-		})
-		return
-	}
 
 	p, err := app.DB.GetPickup(payload.ID, int(r.Context().Value("JWTData").(appjwt.JWTData).UserID))
 	if err != nil {
@@ -235,17 +231,7 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.Validate.Struct(payload)
-	errTranslated := validation.TranslateError(err, app.Translator)
-
-	if errTranslated != nil {
-		app.writeJSON(w, http.StatusBadRequest, Resp{
-			Error:   true,
-			Message: "Some of the fields have error",
-			Data:    errTranslated,
-		})
-		return
-	}
+	app.validatePayload(w, payload)
 
 	// check
 	user, err := app.DB.GetUserByPhone(payload.Phone)
@@ -260,18 +246,39 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hashedPassword, err := password.HashPassword(payload.Password)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
 	// insert user, if not already inserted(with default inactive status)
 	if err == sql.ErrNoRows {
-		_, err = app.DB.InsertUser(payload)
+		_, err = app.DB.InsertUser(models.SignupUserRequest{
+			Phone:          payload.Phone,
+			FirstName:      payload.FirstName,
+			LastName:       payload.LastName,
+			Email:          payload.Email,
+			Password:       hashedPassword,
+			Province:       payload.Province,
+			City:           payload.City,
+			Street:         payload.Street,
+			Alley:          payload.Alley,
+			ApartmentPlate: payload.ApartmentPlate,
+			ApartmentNo:    payload.ApartmentNo,
+			PostalCode:     payload.PostalCode,
+		})
 		if err != nil {
 			app.errorJSON(w, err, http.StatusBadRequest)
 			return
 		}
 	}
 
-	app.Session.Put(r.Context(), "otp", otp.GenerateOTP(6))
+	signupOTP := otp.GenerateOTPCode(6)
+	fmt.Println("signup otp: ", signupOTP)
+	app.Session.Put(r.Context(), "otp", signupOTP)
 
-	/* TODO: send the validation email and SMS, so that user can verify both, but the SMS verification is necessary for the user to be registered.
+	/* TODO: send the validation email(IF provided) and SMS, so that user can verify both, but the SMS verification is necessary for the user to be registered.
 	We can use the message field of Resp type and make it to have fa and en.*/
 
 	resp := Resp{
@@ -368,16 +375,7 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.Validate.Struct(payload)
-	errTranslated := validation.TranslateError(err, app.Translator)
-	if errTranslated != nil {
-		app.writeJSON(w, http.StatusBadRequest, Resp{
-			Error:   true,
-			Message: "Some of the fields have error",
-			Data:    errTranslated,
-		})
-		return
-	}
+	app.validatePayload(w, payload)
 
 	u, err := app.DB.GetUserByPhone(payload.Phone)
 	if err != nil {
@@ -484,25 +482,68 @@ func (app *application) SendResetPasswordOTP(w http.ResponseWriter, r *http.Requ
 
 	app.readJSON(w, r, &payload)
 
-	u, err := app.DB.GetUserByEmail(payload.Email)
+	app.validatePayload(w, payload)
+
+	u, err := app.DB.GetUserByPhone(payload.Phone)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest) // TODO: test badRequest method here
 		return
 	}
 
-	if u.EmailStatus != models.StatusUserEmailActive {
+	if u.Status != models.StatusUserActive {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
 	}
 
 	// TODO: Set OTP for resetting password in session
+	resetPasswordOTP := otp.GenerateOTPCode(6)
+	fmt.Println("signup otp: ", resetPasswordOTP)
+	app.Session.Put(r.Context(), "resetPassword", PhoneWithOTP{
+		Phone: payload.Phone,
+		OTP:   resetPasswordOTP,
+	})
 
 	// TODO: send OTP SMS for resetting password
 }
 
-func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
+func (app *application) VerifyResetPasswordOTP(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check OTP with the one in session and if it was correct, reset the password and update it in DB
 	// TODO: Should sending the OTP of resetting password be a separate step
+	var payload VerifyResetPasswordOTPRequest
+
+	app.readJSON(w, r, &payload)
+
+	app.validatePayload(w, payload)
+
+	if payload.OTP != app.Session.Get(r.Context(), "resetPassword").(PhoneWithOTP).OTP {
+		app.errorJSON(w, errors.New("invalid OTP"), http.StatusBadRequest)
+		return
+	}
+
+	// generate a token for sending it in url and pass it back in CompleteResetPassword
+}
+
+func (app *application) CompleteResetPassword(w http.ResponseWriter, r *http.Request) {
+	var payload CompleteResetPasswordRequest
+
+	app.readJSON(w, r, &payload)
+
+	app.validatePayload(w, payload)
+
+	// todo: Verify the token sent in query param(what should be in the claims? Maybe userID because we need it for updating the password)
+
+	//resetPasswordSession := app.Session.Get(r.Context(), "resetPassword")
+	//hashedPassword, err := password.HashPassword(payload.Password)
+	//if err != nil {
+	//	app.errorJSON(w, err, http.StatusBadRequest)
+	//	return
+	//}
+
+	//err := app.DB.UpdateUserPassword(hashedPassword)
+	//if err != nil {
+	//	app.errorJSON(w, err, http.StatusBadRequest)
+	//	return
+	//}
 }
 
 // NewAuthTokens generates a new pair of access and refresh tokens

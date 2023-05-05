@@ -42,7 +42,9 @@ type application struct {
 }
 
 func newApp() *application {
-	err := godotenv.Load("../../.env")
+	registerGOB()
+
+	err := env.LoadEnv()
 	if err != nil {
 		log.Fatal("Error loading .env file", err)
 	}
@@ -136,6 +138,10 @@ func (app *application) gracefulShutdown() {
 	}
 
 	app.logger.Info("Server stopped")
+}
+
+func registerGOB() {
+	gob.Register(PhoneWithOTP{})
 }
 
 func main() {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/Parsa-Sedigh/rebottle/internal/password"
 	"time"
 )
 
@@ -22,6 +21,10 @@ const (
 	StatusPickupCancelledByUser   = "cancelled_by_user"
 	StatusPickupCancelledBySystem = "cancelled_by_system"
 	StatusPickupDone              = "done"
+
+	StatusUserInactive = "inactive"
+	StatusUserBlocked  = "blocked"
+	StatusUserActive   = "active"
 
 	StatusUserEmailInactive = "inactive"
 	StatusUserEmailActive   = "active"
@@ -175,11 +178,6 @@ func (m *Models) InsertUser(u SignupUserRequest) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	hashedPassword, err := password.HashPassword(u.Password)
-	if err != nil {
-		return 0, err
-	}
-
 	var id int
 
 	stmt := `
@@ -187,7 +185,7 @@ func (m *Models) InsertUser(u SignupUserRequest) (int, error) {
 		       street, alley, apartment_plate, apartment_no, postal_code)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 	`
-	_, err = m.DB.ExecContext(ctx, stmt, u.Phone, u.FirstName, u.LastName, u.Email, hashedPassword, 0, u.Province, u.City,
+	_, err := m.DB.ExecContext(ctx, stmt, u.Phone, u.FirstName, u.LastName, u.Email, u.Password, 0, u.Province, u.City,
 		u.Street, u.Alley, u.ApartmentPlate, u.ApartmentNo, u.PostalCode)
 	if err != nil {
 		return 0, err
@@ -210,6 +208,21 @@ func (m *Models) UpdateUserStatus(status string, userID int) error {
 		UPDATE "user" SET status = $1 WHERE id = $2
 	`
 	_, err := m.DB.ExecContext(ctx, stmt, status, userID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Models) UpdateUserPassword(hash string, userID int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	stmt := `
+		UPDATE "user" SET password = $1 WHERE id = $2
+	`
+	_, err := m.DB.ExecContext(ctx, stmt, hash, userID)
 	if err != nil {
 		return err
 	}
