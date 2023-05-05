@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"io"
 	"net/http"
 )
@@ -83,4 +84,17 @@ func (app *application) errorJSON(w http.ResponseWriter, err error, status ...in
 	payload.Message = err.Error()
 
 	return app.writeJSON(w, statusCode, payload)
+}
+
+func (app *application) validatePayload(w http.ResponseWriter, s interface{}) {
+	err := app.Validate.Struct(s)
+	errTranslated := validation.TranslateError(err, app.Translator)
+	if errTranslated != nil {
+		app.writeJSON(w, http.StatusBadRequest, Resp{
+			Error:   true,
+			Message: "Some of the fields have error",
+			Data:    errTranslated,
+		})
+		return
+	}
 }
