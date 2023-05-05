@@ -72,9 +72,9 @@ paths:
 #    $ref: './paths/login/login.yaml'
 
 
-#  /pickup:
-#    $ref: './paths/pickup/pickups.yaml'
-#
-#  "/pickup/{pickupId}":
-#    $ref: './paths/pickup/pickup.yaml'
+  /pickup:
+    $ref: './paths/pickup/pickups.yaml'
+
+  "/pickup/{pickupId}":
+    $ref: './paths/pickup/pickup.yaml'
 

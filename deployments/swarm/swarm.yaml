@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  api:
+    image: parsa7899/rebottle/0.0.1
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  postgres:
+    image: 'postgres:15.2'
+    ports:
+      - "5432:5432"
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      POSTGRES_USER: parsa
+      POSTGRES_PASSWORD: parsa
+      POSTGRES_DB: rebottle
+    volumes:
+      - ./db-data/postgres/:/var/lib/postgresql/data/
+      - .:/docker-entrypoint-initdb.d/
