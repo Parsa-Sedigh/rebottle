@@ -107,6 +107,11 @@ type CompleteResetPasswordRequest struct {
 	Password string `json:"password" validate:"required,min=6"`
 }
 
+type SignupDriverRequest struct {
+	models.SignupUserRequest
+	LicenseNo string
+}
+
 // TODO: Filters
 func (app *application) GetPickups(w http.ResponseWriter, r *http.Request) {
 	pickups, err := app.DB.GetUserPickups(int(r.Context().Value("JWTData").(appjwt.JWTData).UserID))
@@ -303,7 +308,7 @@ func (app *application) VerifyUserSignup(w http.ResponseWriter, r *http.Request)
 	}
 
 	// check if OTP is correct
-	if payload.OTP != app.Session.Get(r.Context(), "otp") {
+	if payload.OTP != app.Session.GetString(r.Context(), "otp") {
 		app.errorJSON(w, errors.New("invalid OTP"), http.StatusBadRequest)
 		return
 	}
@@ -568,3 +573,20 @@ func (app *application) NewAuthTokens(w http.ResponseWriter, r *http.Request) {
 		AccessToken:  accessToken,
 	})
 }
+
+func (app *application) SignupDriver(w http.ResponseWriter, r *http.Request) {
+	var payload SignupDriverRequest
+
+	err := app.readJSON(w, r, &payload)
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	app.validatePayload(w, payload)
+	//driver, err := app.DB.InsertDriver(payload)
+}
+
+func (app *application) VerifyDriverSignup(w http.ResponseWriter, r *http.Request) {}
+
+func (app *application) UpdateDriver(w http.ResponseWriter, r *http.Request) {}

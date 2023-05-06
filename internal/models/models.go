@@ -79,17 +79,52 @@ type Pickup struct {
 }
 
 type Driver struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
-	LicenseNo string    `json:"license_no"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             int    `json:"id"`
+	Phone          string `json:"phone"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	Email          string `json:"email"`
+	Password       string `json:"-"`
+	Status         string `json:"status"` // TODO: how convert sql enums to go code?
+	EmailStatus    string `json:"email_status"`
+	Province       string `json:"province"`
+	City           string `json:"city"`
+	Street         string `json:"street"`
+	Alley          string `json:"alley"`
+	ApartmentPlate uint16 `json:"apartment_plate"`
+	ApartmentNo    uint16 `json:"apartment_no"`
+	PostalCode     string `json:"postal_code"`
+	//UserID    int       `json:"user_id"`
+	LicenseNo     string    `json:"license_no"`
+	LicenseStatus string    `json:"license_status"`
+	CreatedAt     time.Time `json:"created_at"` // TODO: how convert sql timestamp to go code?
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type InsertDriverData struct {
+	Phone          string `json:"phone"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	LicenseNo      string `json:"license_no"`
+	Province       string `json:"province"`
+	City           string `json:"city"`
+	Street         string `json:"street"`
+	Alley          string `json:"alley"`
+	ApartmentPlate uint16 `json:"apartment_plate"`
+	ApartmentNo    uint16 `json:"apartment_no"`
+	PostalCode     string `json:"postal_code"`
+}
+
+type UpdateDriverData struct {
 }
 
 type Truck struct {
 	ID        int       `json:"id"`
 	PlateNo   string    `json:"plate_no"`
+	Model     string    `json:"model"`
+	Color     string    `json:"color"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -386,4 +421,66 @@ func (m *Models) CancelPickup(pickupID, userID int, byUser bool) error {
 	}
 
 	return nil
+}
+
+func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	stmt := `
+		INSERT INTO driver(phone, first_name, last_name, email, password, license_no, province, city,
+		       street, alley, apartment_plate, apartment_no, postal_code)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+	`
+	preparedStmt, err := m.DB.PrepareContext(ctx, stmt)
+	if err != nil {
+		return Driver{}, err
+	}
+	defer preparedStmt.Close()
+
+	var driver Driver
+
+	err = preparedStmt.QueryRowContext(ctx, stmt,
+		data.Phone,
+		data.FirstName,
+		data.LastName,
+		data.Email,
+		data.Password,
+		data.LicenseNo,
+		data.Province,
+		data.City,
+		data.Street,
+		data.Alley,
+		data.ApartmentPlate,
+		data.ApartmentNo,
+		data.PostalCode).
+		Scan(
+			&driver.ID,
+			&driver.Phone,
+			&driver.FirstName,
+			&driver.LastName,
+			&driver.Email,
+			&driver.LicenseNo,
+			&driver.LicenseStatus,
+			&driver.Status,
+			&driver.Province,
+			&driver.City,
+			&driver.Street,
+			&driver.Alley,
+			&driver.ApartmentPlate,
+			&driver.ApartmentNo,
+			&driver.PostalCode,
+			&driver.CreatedAt,
+			&driver.UpdatedAt,
+		)
+	if err != nil {
+		return Driver{}, err
+	}
+
+	return driver, nil
+}
+
+func (m *Models) UpdateDriver(data UpdateDriverData) {
+	//ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	//defer cancel()
 }
