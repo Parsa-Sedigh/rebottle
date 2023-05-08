@@ -50,8 +50,7 @@ type UpdatePickupRequestValidation struct {
 }
 
 type VerifyUserSignupRequest struct {
-	Phone string `json:"phone" validate:"required,min=11,max=11,phone"`
-	OTP   string `json:"otp" validate:"required,min=6,max=6,numeric"`
+	OTP string `json:"otp" validate:"required,min=6,max=6,numeric"`
 }
 
 type VerifyUserEmailRequest struct {
@@ -108,8 +107,37 @@ type CompleteResetPasswordRequest struct {
 }
 
 type SignupDriverRequest struct {
-	models.SignupUserRequest
-	LicenseNo string
+	Phone          string `json:"phone" validate:"required,min=11,max=11,phone"`
+	FirstName      string `json:"first_name" validate:"required"`
+	LastName       string `json:"last_name" validate:"required"`
+	Email          string `json:"email" validate:"required,email"`
+	Password       string `json:"password" validate:"required,min=6"`
+	LicenseNo      string `json:"license_no" validate:"required"` // TODO: better validation for license number in Iran?
+	Province       string `json:"province" validate:"required"`
+	City           string `json:"city" validate:"required"`
+	Street         string `json:"street" validate:"required"`
+	Alley          string `json:"alley"`
+	ApartmentPlate uint16 `json:"apartment_plate" validate:"required"`
+	ApartmentNo    uint16 `json:"apartment_no" validate:"required"`
+	PostalCode     string `json:"postal_code" validate:"required"`
+}
+
+type VerifyDriverSignupRequest struct {
+	OTP string `json:"otp" validate:"required,min=6,max=6,numeric"`
+}
+
+type UpdateDriverRequest struct {
+	FirstName      string `json:"first_name" validate:"required"`
+	LastName       string `json:"last_name" validate:"required"`
+	Email          string `json:"email" validate:"required,email"`
+	LicenseNo      string `json:"license_no" validate:"required"` // TODO: better validation for license number in Iran?
+	Province       string `json:"province" validate:"required"`
+	City           string `json:"city" validate:"required"`
+	Street         string `json:"street" validate:"required"`
+	Alley          string `json:"alley"`
+	ApartmentPlate uint16 `json:"apartment_plate" validate:"required"`
+	ApartmentNo    uint16 `json:"apartment_no" validate:"required"`
+	PostalCode     string `json:"postal_code" validate:"required"`
 }
 
 // TODO: Filters
@@ -246,7 +274,7 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if user exists:
-	if user.ID > 0 {
+	if user.ID > 0 && user.Status != models.StatusUserInactive {
 		app.errorJSON(w, errors.New("user already exists"), http.StatusBadRequest)
 		return
 	}
@@ -258,30 +286,31 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// insert user, if not already inserted(with default inactive status)
-	if err == sql.ErrNoRows {
-		_, err = app.DB.InsertUser(models.SignupUserRequest{
-			Phone:          payload.Phone,
-			FirstName:      payload.FirstName,
-			LastName:       payload.LastName,
-			Email:          payload.Email,
-			Password:       hashedPassword,
-			Province:       payload.Province,
-			City:           payload.City,
-			Street:         payload.Street,
-			Alley:          payload.Alley,
-			ApartmentPlate: payload.ApartmentPlate,
-			ApartmentNo:    payload.ApartmentNo,
-			PostalCode:     payload.PostalCode,
-		})
-		if err != nil {
-			app.errorJSON(w, err, http.StatusBadRequest)
-			return
-		}
+	_, err = app.DB.InsertUser(models.SignupUserRequest{
+		Phone:          payload.Phone,
+		FirstName:      payload.FirstName,
+		LastName:       payload.LastName,
+		Email:          payload.Email,
+		Password:       hashedPassword,
+		Province:       payload.Province,
+		City:           payload.City,
+		Street:         payload.Street,
+		Alley:          payload.Alley,
+		ApartmentPlate: payload.ApartmentPlate,
+		ApartmentNo:    payload.ApartmentNo,
+		PostalCode:     payload.PostalCode,
+	})
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
 	}
 
 	signupOTP := otp.GenerateOTPCode(6)
 	fmt.Println("signup otp: ", signupOTP)
-	app.Session.Put(r.Context(), "otp", signupOTP)
+	app.Session.Put(r.Context(), "otpData", PhoneWithOTP{
+		Phone: payload.Phone,
+		OTP:   signupOTP,
+	})
 
 	/* TODO: send the validation email(IF provided) and SMS, so that user can verify both, but the SMS verification is necessary for the user to be registered.
 	We can use the message field of Resp type and make it to have fa and en.*/
@@ -307,13 +336,15 @@ func (app *application) VerifyUserSignup(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	OTPData := app.Session.Get(r.Context(), "otpData").(PhoneWithOTP)
+
 	// check if OTP is correct
-	if payload.OTP != app.Session.GetString(r.Context(), "otp") {
+	if payload.OTP != OTPData.OTP {
 		app.errorJSON(w, errors.New("invalid OTP"), http.StatusBadRequest)
 		return
 	}
 
-	user, err := app.DB.GetUserByPhone(payload.Phone)
+	user, err := app.DB.GetUserByPhone(OTPData.Phone)
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
@@ -584,9 +615,121 @@ func (app *application) SignupDriver(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.validatePayload(w, payload)
-	//driver, err := app.DB.InsertDriver(payload)
+
+	driver, err := app.DB.InsertDriver(models.InsertDriverData{
+		Phone:          payload.Phone,
+		FirstName:      payload.FirstName,
+		LastName:       payload.LastName,
+		Email:          payload.Email,
+		Password:       payload.Password,
+		LicenseNo:      payload.LicenseNo,
+		Province:       payload.Province,
+		City:           payload.City,
+		Street:         payload.Street,
+		Alley:          payload.Alley,
+		ApartmentPlate: payload.ApartmentPlate,
+		ApartmentNo:    payload.ApartmentNo,
+		PostalCode:     payload.PostalCode,
+	})
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	// TODO: validate license_no using an external API(R&D this) ...
+
+	signupOTP := otp.GenerateOTPCode(6)
+	fmt.Println("signup otp: ", signupOTP)
+	app.Session.Put(r.Context(), "otpData", PhoneWithOTP{
+		Phone: payload.Phone,
+		OTP:   signupOTP,
+	})
+
+	err = app.writeJSON(w, http.StatusCreated, Resp{
+		Error:   false,
+		Message: "Driver created",
+		Data:    driver,
+	})
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
 }
 
-func (app *application) VerifyDriverSignup(w http.ResponseWriter, r *http.Request) {}
+func (app *application) VerifyDriverSignup(w http.ResponseWriter, r *http.Request) {
+	var payload VerifyDriverSignupRequest
 
-func (app *application) UpdateDriver(w http.ResponseWriter, r *http.Request) {}
+	err := app.readJSON(w, r, &payload)
+	if err != nil {
+		app.badRequest(w, r, err)
+		return
+	}
+
+	OTPData := app.Session.Get(r.Context(), "otpData").(PhoneWithOTP)
+
+	if payload.OTP != OTPData.OTP {
+		app.errorJSON(w, errors.New("invalid OTP"), http.StatusBadRequest)
+		return
+	}
+
+	driver, err := app.DB.GetDriverByPhone(OTPData.Phone)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	driver, err = app.DB.UpdateDriverStatus("active", driver.ID)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	accessToken, refreshToken, err := appjwt.GenerateWithMoreClaims(driver.ID, map[string]any{
+		"isDriver": true,
+	})
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, NewAuthTokensResponse{
+		RefreshToken: refreshToken,
+		AccessToken:  accessToken,
+	})
+}
+
+func (app *application) UpdateDriver(w http.ResponseWriter, r *http.Request) {
+	var payload UpdateDriverRequest
+
+	err := app.readJSON(w, r, &payload)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	app.validatePayload(w, payload)
+
+	driver, err := app.DB.UpdateDriver(models.UpdateDriverData{
+		FirstName:      payload.FirstName,
+		LastName:       payload.LastName,
+		Email:          payload.Email,
+		LicenseNo:      payload.LicenseNo,
+		Province:       payload.Province,
+		City:           payload.City,
+		Street:         payload.Street,
+		Alley:          payload.Alley,
+		ApartmentPlate: payload.ApartmentPlate,
+		ApartmentNo:    payload.ApartmentNo,
+		PostalCode:     payload.PostalCode,
+	})
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, driver)
+}
+
+func (app *application) InactiveDriver(w http.ResponseWriter, r *http.Request) {
+
+}

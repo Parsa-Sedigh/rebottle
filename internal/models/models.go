@@ -117,9 +117,6 @@ type InsertDriverData struct {
 	PostalCode     string `json:"postal_code"`
 }
 
-type UpdateDriverData struct {
-}
-
 type Truck struct {
 	ID        int       `json:"id"`
 	PlateNo   string    `json:"plate_no"`
@@ -134,6 +131,11 @@ func genGetUserByFieldQuery(field string) string {
 	return fmt.Sprintf(`SELECT id, phone, first_name, last_name, email, password, credit, status, province, city,
 			street, alley, apartment_plate, apartment_no, postal_code, created_at, updated_at
 			FROM "user" WHERE %s = $1`, field)
+}
+
+func genGetDriverByFieldQuery(field string) string {
+	return fmt.Sprintf(`SELECT id, phone, first_name, last_name, email, license_no, license_status, status, email_status, province, city, street, alley,
+	apartment_plate, apartment_no, postal_code, created_at, updated_at FROM driver WHERE %s = $1`, field)
 }
 
 func (m *Models) scanUserRow(userRow *sql.Row, u *User) error {
@@ -155,6 +157,34 @@ func (m *Models) scanUserRow(userRow *sql.Row, u *User) error {
 		&u.PostalCode,
 		&u.CreatedAt,
 		&u.UpdatedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Models) scanDriverRow(driverRow *sql.Row, d *Driver) error {
+	err := driverRow.Scan(
+		&d.ID,
+		&d.Phone,
+		&d.FirstName,
+		&d.LastName,
+		&d.Email,
+		&d.Status,
+		&d.EmailStatus,
+		&d.Province,
+		&d.City,
+		&d.Street,
+		&d.Alley,
+		&d.ApartmentPlate,
+		&d.ApartmentNo,
+		&d.PostalCode,
+		&d.LicenseNo,
+		&d.LicenseStatus,
+		&d.CreatedAt,
+		&d.UpdatedAt,
 	)
 	if err != nil {
 		return err
@@ -440,7 +470,7 @@ func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
 
 	var driver Driver
 
-	err = preparedStmt.QueryRowContext(ctx, stmt,
+	row := preparedStmt.QueryRowContext(ctx, stmt,
 		data.Phone,
 		data.FirstName,
 		data.LastName,
@@ -453,26 +483,8 @@ func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
 		data.Alley,
 		data.ApartmentPlate,
 		data.ApartmentNo,
-		data.PostalCode).
-		Scan(
-			&driver.ID,
-			&driver.Phone,
-			&driver.FirstName,
-			&driver.LastName,
-			&driver.Email,
-			&driver.LicenseNo,
-			&driver.LicenseStatus,
-			&driver.Status,
-			&driver.Province,
-			&driver.City,
-			&driver.Street,
-			&driver.Alley,
-			&driver.ApartmentPlate,
-			&driver.ApartmentNo,
-			&driver.PostalCode,
-			&driver.CreatedAt,
-			&driver.UpdatedAt,
-		)
+		data.PostalCode)
+	err = m.scanDriverRow(row, &driver)
 	if err != nil {
 		return Driver{}, err
 	}
@@ -480,7 +492,114 @@ func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
 	return driver, nil
 }
 
-func (m *Models) UpdateDriver(data UpdateDriverData) {
-	//ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	//defer cancel()
+func (m *Models) GetDriverByID(id int) (Driver, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var d Driver
+
+	row := m.DB.QueryRowContext(ctx, genGetDriverByFieldQuery("id"), id)
+	err := m.scanDriverRow(row, &d)
+	if err != nil {
+		return Driver{}, err
+	}
+
+	return d, nil
+}
+
+func (m *Models) GetDriverByPhone(phone string) (Driver, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var d Driver
+
+	row := m.DB.QueryRowContext(ctx, genGetDriverByFieldQuery("phone"), phone)
+	err := m.scanDriverRow(row, &d)
+	if err != nil {
+		return Driver{}, err
+	}
+
+	return d, nil
+}
+
+type UpdateDriverData struct {
+	FirstName      string
+	LastName       string
+	Email          string
+	LicenseNo      string
+	Province       string
+	City           string
+	Street         string
+	Alley          string
+	ApartmentPlate uint16
+	ApartmentNo    uint16
+	PostalCode     string
+}
+
+func (m *Models) UpdateDriver(data UpdateDriverData) (Driver, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var d Driver
+
+	stmt := `UPDATE driver SET first_name = $1, last_name = $2, email = $3, license_no = $4,
+                  province = $5, city = $6, street = $7, alley = $8, apartment_plate = $9, apartment_no = $10, postal_code = $11`
+	row := m.DB.QueryRowContext(ctx, stmt,
+		data.FirstName,
+		data.LastName,
+		data.Email,
+		data.LicenseNo,
+		data.Province,
+		data.City,
+		data.Street,
+		data.Alley,
+		data.ApartmentPlate,
+		data.ApartmentNo,
+		data.PostalCode,
+	)
+	err := m.scanDriverRow(row, &d)
+	if err != nil {
+		return Driver{}, err
+	}
+
+	return d, nil
+}
+
+func (m *Models) UpdateDriverStatus(status string, driverID int) (Driver, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	stmt := `UPDATE driver SET status = $1 WHERE id = $2`
+	preparedStmt, err := m.DB.PrepareContext(ctx, stmt)
+	if err != nil {
+		return Driver{}, err
+	}
+
+	var d Driver
+
+	err = preparedStmt.QueryRowContext(ctx, preparedStmt, status, driverID).Scan(
+		&d.ID,
+		&d.Phone,
+		&d.FirstName,
+		&d.LastName,
+		&d.Email,
+		&d.Status,
+		&d.EmailStatus,
+		&d.Province,
+		&d.City,
+		&d.Street,
+		&d.Alley,
+		&d.ApartmentPlate,
+		&d.ApartmentNo,
+		&d.PostalCode,
+		&d.LicenseNo,
+		&d.LicenseStatus,
+		&d.CreatedAt,
+		&d.UpdatedAt,
+	)
+	if err != nil {
+		return Driver{}, err
+	}
+
+	return d, nil
 }
