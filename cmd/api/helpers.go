@@ -44,6 +44,7 @@ func (app *application) badRequest(w http.ResponseWriter, r *http.Request, err e
 		return err
 	}
 
+	w.WriteHeader(http.StatusBadRequest)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(out)
 

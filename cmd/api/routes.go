@@ -14,7 +14,10 @@ func (app *application) routes() http.Handler {
 	mux.Use(app.SessionLoad)
 
 	mux.Post("/signup", app.SignupUser)
+	mux.Post("/signup-driver", app.SignupDriver)
+
 	mux.Post("/verify-signup", app.VerifyUserSignup)
+	mux.Post("/verify-signup-driver", app.VerifyDriverSignup)
 	mux.Post("/login", app.Login)
 	mux.Post("/token", app.NewAuthTokens)
 
@@ -32,6 +35,10 @@ func (app *application) routes() http.Handler {
 
 		r.Route("/user", func(r chi.Router) {
 			r.Get("/", app.GetUser)
+		})
+
+		r.Route("/driver", func(r chi.Router) {
+			r.Put("/", app.UpdateDriver)
 		})
 	})
 	////////////////////////////////

@@ -26,9 +26,15 @@ const (
 	StatusUserBlocked  = "blocked"
 	StatusUserActive   = "active"
 
+	StatusDriverInactive = "inactive"
+	StatusDriverBlocked  = "blocked"
+	StatusDriverActive   = "active"
+
 	StatusUserEmailInactive = "inactive"
 	StatusUserEmailActive   = "active"
 )
+
+const dbTimeout = 3 * time.Second
 
 type User struct {
 	ID             int       `json:"id"`
@@ -166,12 +172,15 @@ func (m *Models) scanUserRow(userRow *sql.Row, u *User) error {
 }
 
 func (m *Models) scanDriverRow(driverRow *sql.Row, d *Driver) error {
+	fmt.Printf("driver row: %+v \n", driverRow)
 	err := driverRow.Scan(
 		&d.ID,
 		&d.Phone,
 		&d.FirstName,
 		&d.LastName,
 		&d.Email,
+		&d.LicenseNo,
+		&d.LicenseStatus,
 		&d.Status,
 		&d.EmailStatus,
 		&d.Province,
@@ -181,11 +190,10 @@ func (m *Models) scanDriverRow(driverRow *sql.Row, d *Driver) error {
 		&d.ApartmentPlate,
 		&d.ApartmentNo,
 		&d.PostalCode,
-		&d.LicenseNo,
-		&d.LicenseStatus,
 		&d.CreatedAt,
 		&d.UpdatedAt,
 	)
+	fmt.Println("scan err: ", err)
 	if err != nil {
 		return err
 	}
@@ -194,7 +202,7 @@ func (m *Models) scanDriverRow(driverRow *sql.Row, d *Driver) error {
 }
 
 func (m *Models) GetUserByPhone(phone string) (User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var u User
@@ -210,7 +218,7 @@ func (m *Models) GetUserByPhone(phone string) (User, error) {
 }
 
 func (m *Models) GetUserByID(id int) (User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var u User
@@ -225,7 +233,7 @@ func (m *Models) GetUserByID(id int) (User, error) {
 }
 
 func (m *Models) GetUserByEmail(email string) (User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var u User
@@ -240,7 +248,7 @@ func (m *Models) GetUserByEmail(email string) (User, error) {
 }
 
 func (m *Models) InsertUser(u SignupUserRequest) (int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var id int
@@ -266,7 +274,7 @@ func (m *Models) InsertUser(u SignupUserRequest) (int, error) {
 }
 
 func (m *Models) UpdateUserStatus(status string, userID int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	stmt := `
@@ -281,7 +289,7 @@ func (m *Models) UpdateUserStatus(status string, userID int) error {
 }
 
 func (m *Models) UpdateUserPassword(hash string, userID int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	stmt := `
@@ -296,7 +304,7 @@ func (m *Models) UpdateUserPassword(hash string, userID int) error {
 }
 
 func (m *Models) GetPickup(pickupID, userID int) (Pickup, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var p Pickup
@@ -324,7 +332,7 @@ func (m *Models) GetPickup(pickupID, userID int) (Pickup, error) {
 }
 
 func (m *Models) InsertPickup(p Pickup) (Pickup, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	query := `
@@ -370,7 +378,7 @@ type UpdatePickupParams struct {
 }
 
 func (m *Models) UpdatePickup(params UpdatePickupParams) (Pickup, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	stmt := `
@@ -390,7 +398,7 @@ func (m *Models) UpdatePickup(params UpdatePickupParams) (Pickup, error) {
 }
 
 func (m *Models) GetUserPickups(userID int) ([]Pickup, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var pickups []Pickup
@@ -434,7 +442,7 @@ func (m *Models) GetUserPickups(userID int) ([]Pickup, error) {
 }
 
 func (m *Models) CancelPickup(pickupID, userID int, byUser bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var status string
@@ -454,13 +462,15 @@ func (m *Models) CancelPickup(pickupID, userID int, byUser bool) error {
 }
 
 func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	stmt := `
 		INSERT INTO driver(phone, first_name, last_name, email, password, license_no, province, city,
-		       street, alley, apartment_plate, apartment_no, postal_code)
+			street, alley, apartment_plate, apartment_no, postal_code)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		RETURNING id, phone, first_name, last_name, email, license_no, license_status, status, email_status,
+		province, city, street, alley, apartment_plate, apartment_no, postal_code, created_at, updated_at
 	`
 	preparedStmt, err := m.DB.PrepareContext(ctx, stmt)
 	if err != nil {
@@ -470,7 +480,7 @@ func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
 
 	var driver Driver
 
-	row := preparedStmt.QueryRowContext(ctx, stmt,
+	row := preparedStmt.QueryRowContext(ctx,
 		data.Phone,
 		data.FirstName,
 		data.LastName,
@@ -484,6 +494,7 @@ func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
 		data.ApartmentPlate,
 		data.ApartmentNo,
 		data.PostalCode)
+	fmt.Println("ROW: ", row.Err(), "err: ", err)
 	err = m.scanDriverRow(row, &driver)
 	if err != nil {
 		return Driver{}, err
@@ -493,7 +504,7 @@ func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
 }
 
 func (m *Models) GetDriverByID(id int) (Driver, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var d Driver
@@ -508,7 +519,7 @@ func (m *Models) GetDriverByID(id int) (Driver, error) {
 }
 
 func (m *Models) GetDriverByPhone(phone string) (Driver, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var d Driver
@@ -537,7 +548,7 @@ type UpdateDriverData struct {
 }
 
 func (m *Models) UpdateDriver(data UpdateDriverData) (Driver, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	var d Driver
@@ -566,7 +577,7 @@ func (m *Models) UpdateDriver(data UpdateDriverData) (Driver, error) {
 }
 
 func (m *Models) UpdateDriverStatus(status string, driverID int) (Driver, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	stmt := `UPDATE driver SET status = $1 WHERE id = $2`
@@ -575,31 +586,15 @@ func (m *Models) UpdateDriverStatus(status string, driverID int) (Driver, error)
 		return Driver{}, err
 	}
 
-	var d Driver
-
-	err = preparedStmt.QueryRowContext(ctx, preparedStmt, status, driverID).Scan(
-		&d.ID,
-		&d.Phone,
-		&d.FirstName,
-		&d.LastName,
-		&d.Email,
-		&d.Status,
-		&d.EmailStatus,
-		&d.Province,
-		&d.City,
-		&d.Street,
-		&d.Alley,
-		&d.ApartmentPlate,
-		&d.ApartmentNo,
-		&d.PostalCode,
-		&d.LicenseNo,
-		&d.LicenseStatus,
-		&d.CreatedAt,
-		&d.UpdatedAt,
-	)
+	preparedStmt.QueryRowContext(ctx, status, driverID)
 	if err != nil {
 		return Driver{}, err
 	}
 
-	return d, nil
+	driver, err := m.GetDriverByID(driverID)
+	if err != nil {
+		return Driver{}, err
+	}
+
+	return driver, nil
 }

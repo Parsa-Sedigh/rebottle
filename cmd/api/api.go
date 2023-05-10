@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Parsa-Sedigh/rebottle/internal/driver"
+	"github.com/Parsa-Sedigh/rebottle/internal/db"
 	"github.com/Parsa-Sedigh/rebottle/internal/models"
 	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"github.com/alexedwards/scs/v2"
@@ -61,7 +61,7 @@ func newApp() *application {
 	flag.IntVar(&cfg.port, "port", 5001, "Server port to listen on")
 	flag.StringVar(&cfg.db.dsn, "dsn", os.Getenv("DSN"), "DSN")
 
-	conn, err := driver.OpenDB(cfg.db.dsn)
+	conn, err := db.OpenDB(cfg.db.dsn)
 	if err != nil {
 		sugar.Fatal(err)
 	}

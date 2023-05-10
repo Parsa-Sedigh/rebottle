@@ -61,6 +61,7 @@ type VerifyUserEmailRequest struct {
 type LoginRequest struct {
 	Phone    string `json:"phone" validate:"required,min=11,max=11,phone"`
 	Password string `json:"password" validate:"required,min=6"`
+	IsDriver bool   `json:"is_driver"`
 }
 
 type CancelPickupRequest struct {
@@ -274,8 +275,25 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if user exists:
-	if user.ID > 0 && user.Status != models.StatusUserInactive {
+	if user.ID > 0 {
+		if user.Status == models.StatusUserInactive {
+			signupOTP := otp.GenerateOTPCode(6)
+			fmt.Println("already signup, but otp is: ", signupOTP)
+
+			app.Session.Put(r.Context(), "otpData", PhoneWithOTP{
+				Phone: payload.Phone,
+				OTP:   signupOTP,
+			})
+
+			app.writeJSON(w, http.StatusOK, Resp{
+				Error:   false,
+				Message: "need to verify the account",
+			})
+			return
+		}
+
 		app.errorJSON(w, errors.New("user already exists"), http.StatusBadRequest)
+
 		return
 	}
 
@@ -336,7 +354,11 @@ func (app *application) VerifyUserSignup(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	OTPData := app.Session.Get(r.Context(), "otpData").(PhoneWithOTP)
+	OTPData, ok := app.Session.Get(r.Context(), "otpData").(PhoneWithOTP)
+	if !ok {
+		app.errorJSON(w, errors.New("please try again"), http.StatusInternalServerError)
+		return
+	}
 
 	// check if OTP is correct
 	if payload.OTP != OTPData.OTP {
@@ -413,21 +435,40 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 
 	app.validatePayload(w, payload)
 
-	u, err := app.DB.GetUserByPhone(payload.Phone)
+	var u models.User
+	var d models.Driver
+
+	if payload.IsDriver {
+		d, err = app.DB.GetDriverByPhone(payload.Phone)
+	} else {
+		u, err = app.DB.GetUserByPhone(payload.Phone)
+	}
+
 	if err != nil {
 		app.errorJSON(w, errors.New("invalid credentials"), http.StatusBadRequest)
 		return
 	}
 
-	isPasswordCorrect := password.CheckPasswordHash(payload.Password, u.Password)
+	var isPasswordCorrect bool
+	if payload.IsDriver {
+		isPasswordCorrect = password.CheckPasswordHash(payload.Password, d.Password)
+	} else {
+		isPasswordCorrect = password.CheckPasswordHash(payload.Password, u.Password)
+	}
 
 	if !isPasswordCorrect {
 		app.errorJSON(w, errors.New("invalid credentials"), http.StatusBadRequest)
 		return
 	}
 
-	// TODO: Generate JWT and send it back (http cookie or in response?)
-	accessToken, refreshToken, err := appjwt.Generate(u.ID)
+	var accessToken, refreshToken string
+	if payload.IsDriver {
+		// TODO: Generate JWT and send it back (http cookie or in response?)
+		accessToken, refreshToken, err = appjwt.GenerateWithMoreClaims(u.ID, map[string]any{"isDriver": true})
+	} else {
+		accessToken, refreshToken, err = appjwt.Generate(u.ID)
+	}
+
 	if err != nil {
 		app.errorJSON(w, err, http.StatusBadRequest)
 		return
@@ -616,12 +657,46 @@ func (app *application) SignupDriver(w http.ResponseWriter, r *http.Request) {
 
 	app.validatePayload(w, payload)
 
-	driver, err := app.DB.InsertDriver(models.InsertDriverData{
+	driver, err := app.DB.GetDriverByPhone(payload.Phone)
+	if err != nil && err != sql.ErrNoRows {
+		app.badRequest(w, r, err)
+		return
+	}
+	if driver.ID > 0 {
+		/* Generate an OTP again so user can continue the signup process*/
+		if driver.Status == models.StatusDriverInactive {
+			signupOTP := otp.GenerateOTPCode(6)
+			fmt.Println("already signup, but otp is: ", signupOTP)
+
+			app.Session.Put(r.Context(), "otpData", PhoneWithOTP{
+				Phone: payload.Phone,
+				OTP:   signupOTP,
+			})
+
+			app.writeJSON(w, http.StatusOK, Resp{
+				Error:   false,
+				Message: "need to verify the account",
+			})
+
+			return
+		}
+
+		app.badRequest(w, r, errors.New("driver already exists"))
+		return
+	}
+
+	hashedPassword, err := password.HashPassword(payload.Password)
+	if err != nil {
+		app.errorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	driver, err = app.DB.InsertDriver(models.InsertDriverData{
 		Phone:          payload.Phone,
 		FirstName:      payload.FirstName,
 		LastName:       payload.LastName,
 		Email:          payload.Email,
-		Password:       payload.Password,
+		Password:       hashedPassword,
 		LicenseNo:      payload.LicenseNo,
 		Province:       payload.Province,
 		City:           payload.City,
@@ -665,7 +740,11 @@ func (app *application) VerifyDriverSignup(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	OTPData := app.Session.Get(r.Context(), "otpData").(PhoneWithOTP)
+	OTPData, ok := app.Session.Get(r.Context(), "otpData").(PhoneWithOTP)
+	if !ok {
+		app.errorJSON(w, errors.New("please try again"), http.StatusInternalServerError)
+		return
+	}
 
 	if payload.OTP != OTPData.OTP {
 		app.errorJSON(w, errors.New("invalid OTP"), http.StatusBadRequest)
