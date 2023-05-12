@@ -1,9 +1,10 @@
-package main
+package app
 
 import (
 	"context"
 	"errors"
 	"github.com/Parsa-Sedigh/rebottle/internal/appjwt"
+	"github.com/Parsa-Sedigh/rebottle/pkg/jsonutil"
 	"net/http"
 	"strings"
 )
@@ -18,13 +19,13 @@ func (app *application) VerifyJWT(next http.Handler) http.Handler {
 			headerParts := strings.Split(r.Header.Get("Authorization"), " ")
 
 			if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-				app.errorJSON(w, errors.New("no authorization header received"), http.StatusUnauthorized)
+				jsonutil.ErrorJSON(w, app.logger, errors.New("no authorization header received"), http.StatusUnauthorized)
 				return
 			}
 
 			JWTData, err := appjwt.ExtractClaims(headerParts[1])
 			if err != nil {
-				app.errorJSON(w, errors.New("you're unauthorized"), http.StatusUnauthorized)
+				jsonutil.ErrorJSON(w, app.logger, errors.New("you're unauthorized"), http.StatusUnauthorized)
 				return
 			}
 
@@ -34,6 +35,6 @@ func (app *application) VerifyJWT(next http.Handler) http.Handler {
 			return
 		}
 
-		app.errorJSON(w, errors.New("you're unauthorized"), http.StatusUnauthorized)
+		jsonutil.ErrorJSON(w, app.logger, errors.New("you're unauthorized"), http.StatusUnauthorized)
 	})
 }

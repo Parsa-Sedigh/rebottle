@@ -68,7 +68,7 @@ type SignupUserRequest struct {
 	Street         string `json:"street" validate:"required"`
 	Alley          string `json:"alley,omitempty"`
 	ApartmentPlate int    `json:"apartment_plate,omitempty" validate:"required"`
-	ApartmentNo    uint16 `json:"apartment_no,omitempty" validate:"required"`
+	ApartmentNo    int    `json:"apartment_no,omitempty" validate:"required"`
 	PostalCode     string `json:"postal_code" validate:"required"`
 }
 

@@ -53,3 +53,9 @@ func TranslateError(err error, trans ut.Translator) map[string]string {
 
 	return errors
 }
+
+func ValidatePayload(validator *validator.Validate, translator ut.Translator, s interface{}) map[string]string {
+	err := validator.Struct(s)
+
+	return TranslateError(err, translator)
+}

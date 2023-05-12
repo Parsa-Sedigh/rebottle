@@ -1,9 +1,9 @@
-package main
+package jsonutil
 
 import (
 	"encoding/json"
 	"errors"
-	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 )
@@ -14,8 +14,8 @@ type Resp struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// readJSON reads data into the data param(it assumes data is a reference type)
-func (app *application) readJSON(w http.ResponseWriter, r *http.Request, data any) error {
+// ReadJSON reads data into the data param(it assumes data is a reference type)
+func ReadJSON(w http.ResponseWriter, r *http.Request, data any) error {
 	maxBytes := 1048576
 
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
@@ -34,7 +34,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, data an
 	return nil
 }
 
-func (app *application) badRequest(w http.ResponseWriter, r *http.Request, err error) error {
+func BadRequest(w http.ResponseWriter, r *http.Request, err error) error {
 	var payload Resp
 	payload.Error = true
 	payload.Message = err.Error()
@@ -51,8 +51,8 @@ func (app *application) badRequest(w http.ResponseWriter, r *http.Request, err e
 	return nil
 }
 
-// writeJSON writes arbitrary data out as JSON
-func (app *application) writeJSON(w http.ResponseWriter, status int, data any, headers ...http.Header) error {
+// WriteJSON writes arbitrary data out as JSON
+func WriteJSON(w http.ResponseWriter, status int, data any, headers ...http.Header) error {
 	out, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -71,10 +71,10 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data any, h
 	return nil
 }
 
-func (app *application) errorJSON(w http.ResponseWriter, err error, status ...int) error {
+func ErrorJSON(w http.ResponseWriter, logger *zap.Logger, err error, status ...int) error {
 	statusCode := http.StatusBadRequest
 
-	app.logger.Error(err.Error())
+	logger.Error(err.Error())
 
 	if len(status) > 0 {
 		statusCode = status[0]
@@ -84,18 +84,5 @@ func (app *application) errorJSON(w http.ResponseWriter, err error, status ...in
 	payload.Error = true
 	payload.Message = err.Error()
 
-	return app.writeJSON(w, statusCode, payload)
-}
-
-func (app *application) validatePayload(w http.ResponseWriter, s interface{}) {
-	err := app.Validate.Struct(s)
-	errTranslated := validation.TranslateError(err, app.Translator)
-	if errTranslated != nil {
-		app.writeJSON(w, http.StatusBadRequest, Resp{
-			Error:   true,
-			Message: "Some of the fields have error",
-			Data:    errTranslated,
-		})
-		return
-	}
+	return WriteJSON(w, statusCode, payload)
 }
