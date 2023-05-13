@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"github.com/Parsa-Sedigh/rebottle/internal/appjwt"
 	"github.com/Parsa-Sedigh/rebottle/internal/dto"
@@ -12,11 +11,14 @@ import (
 	"github.com/Parsa-Sedigh/rebottle/internal/otp"
 	"github.com/Parsa-Sedigh/rebottle/internal/password"
 	"github.com/Parsa-Sedigh/rebottle/internal/repository"
+	"github.com/Parsa-Sedigh/rebottle/pkg/serviceerr"
 	"github.com/alexedwards/scs/v2"
+	"net/http"
 )
 
 type AuthService interface {
 	SignupUser(ctx context.Context, payload dto.CreateUser) (dto.User, error)
+	SignupDriver(ctx context.Context, payload dto.SignupDriverRequest) (dto.Driver, error)
 	VerifyUserSignup(ctx context.Context, payload dto.VerifyUserSignupRequest) error
 	Login(payload dto.LoginRequest) (string, string, error)
 }
@@ -26,17 +28,32 @@ type authService struct {
 	session *scs.SessionManager
 }
 
+func driverModelToDTO(d model.Driver) dto.Driver {
+	return dto.Driver{
+		ID:             d.ID,
+		Phone:          d.Phone,
+		FirstName:      d.FirstName,
+		LastName:       d.LastName,
+		Email:          d.Email,
+		EmailStatus:    d.EmailStatus,
+		Status:         d.Status,
+		Province:       d.Province,
+		City:           d.City,
+		Street:         d.Street,
+		Alley:          d.Alley,
+		ApartmentPlate: d.ApartmentPlate,
+		ApartmentNo:    d.ApartmentNo,
+		PostalCode:     d.PostalCode,
+		LicenseNo:      d.LicenseNo,
+		LicenseStatus:  d.LicenseStatus,
+		CreatedAt:      d.CreatedAt,
+		UpdatedAt:      d.UpdatedAt,
+	}
+}
+
 func NewAuthService(dao repository.DAO, session *scs.SessionManager) AuthService {
 	return &authService{dao: dao, session: session}
 }
-
-var (
-	ErrNeedAccountVerification = errors.New("need to verify the account")
-	ErrUserExists              = errors.New("user already exists")
-	ErrTryAgain                = errors.New("please try again")
-	ErrInvalidOTP              = errors.New("invalid OTP")
-	ErrInvalidCredentials      = errors.New("invalid credentials")
-)
 
 func (a *authService) SignupUser(ctx context.Context, payload dto.CreateUser) (dto.User, error) {
 	user, err := a.dao.NewUserRepository().GetUserByPhone(payload.Phone)
@@ -56,10 +73,10 @@ func (a *authService) SignupUser(ctx context.Context, payload dto.CreateUser) (d
 				OTP:   signupOTP,
 			})
 
-			return dto.User{}, ErrNeedAccountVerification
+			return dto.User{}, serviceerr.NewServiceErr("need to verify the account", http.StatusBadRequest)
 		}
 
-		return dto.User{}, ErrUserExists
+		return dto.User{}, serviceerr.NewServiceErr("user already exists", http.StatusBadRequest)
 	}
 
 	hashedPassword, err := password.HashPassword(payload.Password)
@@ -99,15 +116,74 @@ func (a *authService) SignupUser(ctx context.Context, payload dto.CreateUser) (d
 	return UserModelToDTO(user), nil
 }
 
+func (a *authService) SignupDriver(ctx context.Context, payload dto.SignupDriverRequest) (dto.Driver, error) {
+	driver, err := a.dao.NewDriverRepository().GetDriverByPhone(payload.Phone)
+	if err != nil && err != sql.ErrNoRows {
+		return dto.Driver{}, serviceerr.NewServiceErr("sth went wrong", http.StatusBadRequest)
+	}
+
+	if driver.ID > 0 {
+		/* Generate an OTP again so user can continue the signup process*/
+		if driver.Status == models.StatusDriverInactive {
+			signupOTP := otp.GenerateOTPCode(6)
+			fmt.Println("already signup, but otp is: ", signupOTP)
+
+			a.session.Put(ctx, "otpData", dto.PhoneWithOTP{
+				Phone: payload.Phone,
+				OTP:   signupOTP,
+			})
+
+			return dto.Driver{}, serviceerr.NewServiceErr("need to verify the account", http.StatusBadRequest)
+		}
+
+		return dto.Driver{}, serviceerr.NewServiceErr("driver already exists", http.StatusBadRequest)
+	}
+
+	hashedPassword, err := password.HashPassword(payload.Password)
+	if err != nil {
+		return dto.Driver{}, serviceerr.NewServiceErr("sth went wrong", http.StatusBadRequest)
+	}
+
+	driver, err = a.dao.NewDriverRepository().CreateDriver(dto.CreateDriver{
+		Phone:          payload.Phone,
+		Password:       hashedPassword,
+		FirstName:      payload.FirstName,
+		LastName:       payload.LastName,
+		Email:          payload.Email,
+		LicenseNo:      payload.LicenseNo,
+		Province:       payload.Province,
+		City:           payload.City,
+		Street:         payload.Street,
+		Alley:          payload.Alley,
+		ApartmentPlate: payload.ApartmentPlate,
+		ApartmentNo:    payload.ApartmentNo,
+		PostalCode:     payload.PostalCode,
+	})
+	if err != nil {
+		return dto.Driver{}, serviceerr.NewServiceErr("sth went wrong", http.StatusBadRequest)
+	}
+
+	// TODO: validate license_no using an external API(R&D this) ...
+
+	signupOTP := otp.GenerateOTPCode(6)
+	fmt.Println("signup otp: ", signupOTP)
+	a.session.Put(ctx, "otpData", dto.PhoneWithOTP{
+		Phone: payload.Phone,
+		OTP:   signupOTP,
+	})
+
+	return driverModelToDTO(driver), nil
+}
+
 func (a *authService) VerifyUserSignup(ctx context.Context, payload dto.VerifyUserSignupRequest) error {
 	OTPData, ok := a.session.Get(ctx, "otpData").(dto.PhoneWithOTP)
 	if !ok {
-		return ErrTryAgain
+		return serviceerr.NewServiceErr("please try again", http.StatusBadRequest)
 	}
 
 	// check if OTP is correct
 	if payload.OTP != OTPData.OTP {
-		return ErrInvalidOTP
+		return serviceerr.NewServiceErr("invalid OTP", http.StatusBadRequest)
 	}
 
 	user, err := a.dao.NewUserRepository().GetUserByPhone(OTPData.Phone)
@@ -137,7 +213,7 @@ func (a *authService) Login(payload dto.LoginRequest) (string, string, error) {
 	} else {
 		u, err = a.dao.NewUserRepository().GetUserByPhone(payload.Phone)
 		if err != nil {
-			return "", "", ErrInvalidCredentials
+			return "", "", serviceerr.NewServiceErr("invalid credentials", http.StatusBadRequest)
 		}
 	}
 
@@ -149,7 +225,7 @@ func (a *authService) Login(payload dto.LoginRequest) (string, string, error) {
 	}
 
 	if !isPasswordCorrect {
-		return "", "", ErrInvalidCredentials
+		return "", "", serviceerr.NewServiceErr("invalid credentials", http.StatusBadRequest)
 	}
 
 	var accessToken, refreshToken string

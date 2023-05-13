@@ -172,7 +172,6 @@ func (m *Models) scanUserRow(userRow *sql.Row, u *User) error {
 }
 
 func (m *Models) scanDriverRow(driverRow *sql.Row, d *Driver) error {
-	fmt.Printf("driver row: %+v \n", driverRow)
 	err := driverRow.Scan(
 		&d.ID,
 		&d.Phone,
@@ -494,7 +493,6 @@ func (m *Models) InsertDriver(data InsertDriverData) (Driver, error) {
 		data.ApartmentPlate,
 		data.ApartmentNo,
 		data.PostalCode)
-	fmt.Println("ROW: ", row.Err(), "err: ", err)
 	err = m.scanDriverRow(row, &driver)
 	if err != nil {
 		return Driver{}, err

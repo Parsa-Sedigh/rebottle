@@ -1,16 +1,14 @@
 package app
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/Parsa-Sedigh/rebottle/internal/appjwt"
 	"github.com/Parsa-Sedigh/rebottle/internal/dto"
 	"github.com/Parsa-Sedigh/rebottle/internal/models"
 	"github.com/Parsa-Sedigh/rebottle/internal/otp"
-	"github.com/Parsa-Sedigh/rebottle/internal/password"
-	"github.com/Parsa-Sedigh/rebottle/internal/service"
 	"github.com/Parsa-Sedigh/rebottle/pkg/jsonutil"
+	"github.com/Parsa-Sedigh/rebottle/pkg/serviceerr"
 	"github.com/Parsa-Sedigh/rebottle/pkg/validation"
 	"net/http"
 	"strings"
@@ -44,16 +42,8 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 		ApartmentNo:    payload.ApartmentNo,
 		PostalCode:     payload.PostalCode,
 	})
-	if err == service.ErrNeedAccountVerification {
-		jsonutil.ErrorJSON(w, app.logger, errors.New("need to verify the account"))
-		return
-	}
-	if err == service.ErrUserExists {
-		jsonutil.ErrorJSON(w, app.logger, errors.New("user already exists"))
-		return
-	}
-	if err != nil {
-		jsonutil.ErrorJSON(w, app.logger, err)
+	if err, ok := err.(serviceerr.ServiceErr); ok {
+		jsonutil.ErrorJSON(w, app.logger, err, err.Status)
 		return
 	}
 
@@ -77,12 +67,8 @@ func (app *application) VerifyUserSignup(w http.ResponseWriter, r *http.Request)
 	}
 
 	err = app.authService.VerifyUserSignup(r.Context(), payload)
-	if err == service.ErrTryAgain {
-		jsonutil.ErrorJSON(w, app.logger, err, http.StatusInternalServerError)
-		return
-	}
-	if err == service.ErrInvalidOTP {
-		jsonutil.ErrorJSON(w, app.logger, err, http.StatusBadRequest)
+	if err, ok := err.(serviceerr.ServiceErr); ok {
+		jsonutil.ErrorJSON(w, app.logger, err, err.Status)
 		return
 	}
 
@@ -211,68 +197,12 @@ func (app *application) SignupDriver(w http.ResponseWriter, r *http.Request) {
 
 	validation.ValidatePayload(app.Validate, app.Translator, payload)
 
-	driver, err := app.DB.GetDriverByPhone(payload.Phone)
-	if err != nil && err != sql.ErrNoRows {
-		jsonutil.BadRequest(w, r, err)
+	driver, err := app.authService.SignupDriver(r.Context(), payload)
+
+	if err, ok := err.(serviceerr.ServiceErr); ok {
+		jsonutil.ErrorJSON(w, app.logger, err, err.Status)
 		return
 	}
-	if driver.ID > 0 {
-		/* Generate an OTP again so user can continue the signup process*/
-		if driver.Status == models.StatusDriverInactive {
-			signupOTP := otp.GenerateOTPCode(6)
-			fmt.Println("already signup, but otp is: ", signupOTP)
-
-			app.Session.Put(r.Context(), "otpData", dto.PhoneWithOTP{
-				Phone: payload.Phone,
-				OTP:   signupOTP,
-			})
-
-			jsonutil.WriteJSON(w, http.StatusOK, jsonutil.Resp{
-				Error:   false,
-				Message: "need to verify the account",
-			})
-
-			return
-		}
-
-		jsonutil.BadRequest(w, r, errors.New("driver already exists"))
-		return
-	}
-
-	hashedPassword, err := password.HashPassword(payload.Password)
-	if err != nil {
-		jsonutil.ErrorJSON(w, app.logger, err, http.StatusBadRequest)
-		return
-	}
-
-	driver, err = app.DB.InsertDriver(models.InsertDriverData{
-		Phone:          payload.Phone,
-		FirstName:      payload.FirstName,
-		LastName:       payload.LastName,
-		Email:          payload.Email,
-		Password:       hashedPassword,
-		LicenseNo:      payload.LicenseNo,
-		Province:       payload.Province,
-		City:           payload.City,
-		Street:         payload.Street,
-		Alley:          payload.Alley,
-		ApartmentPlate: payload.ApartmentPlate,
-		ApartmentNo:    payload.ApartmentNo,
-		PostalCode:     payload.PostalCode,
-	})
-	if err != nil {
-		jsonutil.BadRequest(w, r, err)
-		return
-	}
-
-	// TODO: validate license_no using an external API(R&D this) ...
-
-	signupOTP := otp.GenerateOTPCode(6)
-	fmt.Println("signup otp: ", signupOTP)
-	app.Session.Put(r.Context(), "otpData", dto.PhoneWithOTP{
-		Phone: payload.Phone,
-		OTP:   signupOTP,
-	})
 
 	err = jsonutil.WriteJSON(w, http.StatusCreated, jsonutil.Resp{
 		Error:   false,

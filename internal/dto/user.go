@@ -3,23 +3,23 @@ package dto
 import "time"
 
 type User struct {
-	ID             int
-	Phone          string
-	FirstName      string
-	LastName       string
-	Email          string
-	Credit         uint16
-	Status         string
-	EmailStatus    string
-	Province       string
-	City           string
-	Street         string
-	Alley          string
-	ApartmentPlate uint16
-	ApartmentNo    uint16
-	PostalCode     string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID             int       `json:"id"`
+	Phone          string    `json:"phone"`
+	FirstName      string    `json:"first_name"`
+	LastName       string    `json:"last_name"`
+	Email          string    `json:"email,omitempty"`
+	Credit         uint16    `json:"credit"`
+	Status         string    `json:"status"`
+	EmailStatus    string    `json:"email_status"`
+	Province       string    `json:"province"`
+	City           string    `json:"city"`
+	Street         string    `json:"street"`
+	Alley          string    `json:"alley"`
+	ApartmentPlate uint16    `json:"apartment_plate"`
+	ApartmentNo    uint16    `json:"apartment_no"`
+	PostalCode     string    `json:"postal_code"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type CreateUser struct {

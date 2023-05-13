@@ -9,7 +9,7 @@ import (
 )
 
 func (app *application) UpdateDriver(w http.ResponseWriter, r *http.Request) {
-	var payload dto.UpdateDriverRequest
+	var payload dto.UpdateDriver
 
 	err := jsonutil.ReadJSON(w, r, &payload)
 	if err != nil {
