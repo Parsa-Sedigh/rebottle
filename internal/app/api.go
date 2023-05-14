@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/gob"
 	"flag"
 	"fmt"

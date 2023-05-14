@@ -1,6 +1,6 @@
 package dto
 
-// TODO: Create a PhoneWithOTP struct and embed it where ever a phone and otp fields are used
+// TODO: Create a PhoneWithOTP struct and swaggerui it where ever a phone and otp fields are used
 type PhoneWithOTP struct {
 	Phone string `json:"phone" validate:"required,min=11,max=11,phone"`
 	OTP   string `json:"otp" validate:"required,min=6,max=6,numeric"`
