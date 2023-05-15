@@ -1,21 +1,32 @@
 post:
-tags:
-  - auth
-summary: "login user"
-description: "login user"
-parameters:
-  - name: phone
-    in: path
-    description: "phone number of the user"
-    required: true
-    schema:
-      type: string
-  - name: password
-    in: path
-    description: "password of the user"
-    required: true
-    schema:
-      type: string
-responses:
-  "200":
-    content:
+  tags:
+    - auth
+  summary: "login user"
+  description: "login user"
+  parameters:
+    - name: phone
+      in: path
+      description: "phone number of the user"
+      required: true
+      schema:
+        type: string
+    - name: password
+      in: path
+      description: "password of the user"
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: "Successful login"
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: boolean
+              message:
+                type: string
+              data:
+                type: object
