@@ -33,17 +33,18 @@ type config struct {
 }
 
 type application struct {
-	config      config
-	logger      *zap.Logger
-	version     string
-	DB          models.Models
-	DBPool      *sql.DB
-	Session     *scs.SessionManager
-	Validate    *validator.Validate
-	Translator  ut.Translator
-	server      *http.Server
-	userService service.UserService
-	authService service.AuthService
+	config        config
+	logger        *zap.Logger
+	version       string
+	DB            models.Models
+	DBPool        *sql.DB
+	Session       *scs.SessionManager
+	Validate      *validator.Validate
+	Translator    ut.Translator
+	server        *http.Server
+	userService   service.UserService
+	authService   service.AuthService
+	pickupService service.PickupService
 }
 
 func NewApp() *application {
@@ -83,15 +84,16 @@ func NewApp() *application {
 	dao := repository.NewDAO(conn)
 
 	app := application{
-		config:      cfg,
-		logger:      logger,
-		DB:          models.NewModels(conn),
-		DBPool:      conn,
-		Session:     session,
-		Validate:    validate,
-		Translator:  trans,
-		userService: service.NewUserService(dao),
-		authService: service.NewAuthService(dao, session),
+		config:        cfg,
+		logger:        logger,
+		DB:            models.NewModels(conn),
+		DBPool:        conn,
+		Session:       session,
+		Validate:      validate,
+		Translator:    trans,
+		userService:   service.NewUserService(dao),
+		authService:   service.NewAuthService(dao, session),
+		pickupService: service.NewPickupService(dao),
 	}
 
 	app.server = &http.Server{

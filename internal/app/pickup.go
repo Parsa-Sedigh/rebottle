@@ -37,7 +37,13 @@ func (app *application) GetPickup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := app.DB.GetPickup(IDNum, int(r.Context().Value("JWTData").(appjwt.JWTData).UserID))
+	JWTData, ok := r.Context().Value("JWTData").(appjwt.JWTData)
+	if !ok {
+		jsonutil.BadRequest(w, r, err)
+		return
+	}
+
+	p, err := app.DB.GetPickup(IDNum, int(JWTData.UserID))
 	if err != nil {
 		jsonutil.BadRequest(w, r, err)
 		return
@@ -71,7 +77,7 @@ func (app *application) CreatePickup(w http.ResponseWriter, r *http.Request) {
 
 	var response jsonutil.Resp
 
-	p, err := app.DB.InsertPickup(models.Pickup{
+	err = app.pickupService.CreatePickup(dto.Pickup{
 		UserID: payload.UserID,
 		Time:   time.UnixMilli(payload.Time),
 		Weight: float32(payload.Weight),
@@ -87,7 +93,7 @@ func (app *application) CreatePickup(w http.ResponseWriter, r *http.Request) {
 
 	response.Error = false
 	response.Message = "Pickup created"
-	response.Data = p
+	response.Data = payload
 
 	err = jsonutil.WriteJSON(w, http.StatusCreated, response)
 	if err != nil {

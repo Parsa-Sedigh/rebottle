@@ -12,6 +12,7 @@ type DAO interface {
 	NewUserRepository() UserRepository
 	NewAuthRepository() AuthRepository
 	NewDriverRepository() DriverRepository
+	NewPickupRepository() PickupRepository
 }
 
 type dao struct {
@@ -35,4 +36,8 @@ func (d *dao) NewAuthRepository() AuthRepository {
 
 func (d *dao) NewDriverRepository() DriverRepository {
 	return &driverRepository{DB: d.DB}
+}
+
+func (d *dao) NewPickupRepository() PickupRepository {
+	return &pickupRepository{DB: d.DB}
 }
