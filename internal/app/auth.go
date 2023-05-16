@@ -16,7 +16,6 @@ import (
 
 func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 	var payload models.SignupUserRequest
-	fmt.Println("hello: ", app.userService, app.authService)
 
 	err := jsonutil.ReadJSON(w, r, &payload)
 	if err != nil {

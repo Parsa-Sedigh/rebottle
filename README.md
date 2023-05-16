@@ -1,5 +1,7 @@
 # Everyone can recycle! ♻️
 
+This project aims to provide an example of a production-ready microservice architecture with all the necessary tools for nowadays requirements.
+
 Todo:
 
 - [x] refresh token
@@ -20,7 +22,14 @@ Todo:
 - [ ] microservices
 - [ ] queue(rabbit or NATS?)
 - [ ] github actions
-- [ ] observability (Prometheus)
+- [ ] observability
+    - logs
+        - [ ] loki
+    - metrics
+        - [ ] Prometheus
+        - [ ] Grafana
+    - traces
+        - [ ] jaeger
 - [ ] fully document the api using openapi
 - [ ] deployment using K8S
 
