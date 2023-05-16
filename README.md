@@ -12,6 +12,7 @@ Todo:
 - [x] common format for validation error responses
 - [x] use the zap logger
 - [ ] separate package for http handlers
+- [ ] production-grade Makefile
 - [x] when user signs up but doesn't verify with OTP and come back later, we should generate an OTP for him to verify 
 - [ ] how avoid being known as spammer when sending email and SMS? 
 - [ ] otp through sms using kavehnegar

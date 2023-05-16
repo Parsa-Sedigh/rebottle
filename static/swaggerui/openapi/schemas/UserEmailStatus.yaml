@@ -1,0 +1,5 @@
+type: string
+description: status of the email of user
+enum:
+  - inactive
+  - active

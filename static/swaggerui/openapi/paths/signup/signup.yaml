@@ -3,13 +3,17 @@ post:
     - auth
   summary: "signup user and send OTP"
   description: "signup user and send OTP"
-  parameters:
-    - name: phone
-      in: path
-      description: "phone number of the user"
-      required: true
-      schema:
-        type: string
+  requestBody:
+  required: true
+    content:
+      application/json:
+        value:
+#    - name: phone
+#      in: path
+#      description: "phone number of the user"
+#      required: true
+#      schema:
+#        type: string
   responses:
     "200":
       description: "success response"
