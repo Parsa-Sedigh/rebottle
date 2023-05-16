@@ -26,7 +26,14 @@ func (app *application) SignupUser(w http.ResponseWriter, r *http.Request) {
 
 	/* TODO: Should be in service layer, but how we should pass app.Validate and app.Translator there? Should we pass them
 	   when we instantiate the AuthService ?*/
-	validation.ValidatePayload(app.Validate, app.Translator, payload)
+	if translatedErr := validation.ValidatePayload(app.Validate, app.Translator, payload); translatedErr != nil {
+		jsonutil.WriteJSON(w, http.StatusBadRequest, jsonutil.Resp{
+			Error:   true,
+			Message: "Some of the fields have error",
+			Data:    translatedErr,
+		})
+		return
+	}
 
 	// check
 	_, err = app.authService.SignupUser(r.Context(), dto.CreateUser{

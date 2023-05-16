@@ -69,7 +69,7 @@ type SignupUserRequest struct {
 	Alley          string `json:"alley,omitempty"`
 	ApartmentPlate int    `json:"apartment_plate,omitempty" validate:"required"`
 	ApartmentNo    int    `json:"apartment_no,omitempty" validate:"required"`
-	PostalCode     string `json:"postal_code" validate:"required"`
+	PostalCode     string `json:"postal_code" validate:"required"` // TODO: Better validation
 }
 
 type Pickup struct {

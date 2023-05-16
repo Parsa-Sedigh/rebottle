@@ -26,32 +26,34 @@ func (app *application) routes() http.Handler {
 		MaxAge:           300,
 	}))
 
-	mux.Post("/signup", app.SignupUser)
-	mux.Post("/signup-driver", app.SignupDriver)
+	mux.Route("/v1", func(r chi.Router) {
+		r.Post("/signup", app.SignupUser)
+		r.Post("/signup-driver", app.SignupDriver)
 
-	mux.Post("/verify-signup", app.VerifyUserSignup)
-	mux.Post("/verify-signup-driver", app.VerifyDriverSignup)
-	mux.Post("/login", app.Login)
-	mux.Post("/token", app.NewAuthTokens)
+		r.Post("/verify-signup", app.VerifyUserSignup)
+		r.Post("/verify-signup-driver", app.VerifyDriverSignup)
+		r.Post("/login", app.Login)
+		r.Post("/token", app.NewAuthTokens)
 
-	//////////////// private routes ////////////////
-	mux.Group(func(r chi.Router) {
-		r.Use(app.VerifyJWT)
+		//////////////// private routes ////////////////
+		r.Group(func(r chi.Router) {
+			r.Use(app.VerifyJWT)
 
-		r.Route("/pickup", func(r chi.Router) {
-			r.Get("/", app.GetPickups)
-			r.Post("/", app.CreatePickup)
-			r.Put("/", app.UpdatePickup)
-			r.Patch("/", app.CancelPickup)
-			r.Get("/{id}", app.GetPickup)
-		})
+			r.Route("/pickup", func(r chi.Router) {
+				r.Get("/", app.GetPickups)
+				r.Post("/", app.CreatePickup)
+				r.Put("/", app.UpdatePickup)
+				r.Patch("/", app.CancelPickup)
+				r.Get("/{id}", app.GetPickup)
+			})
 
-		r.Route("/user", func(r chi.Router) {
-			r.Get("/", app.GetUser)
-		})
+			r.Route("/user", func(r chi.Router) {
+				r.Get("/", app.GetUser)
+			})
 
-		r.Route("/driver", func(r chi.Router) {
-			r.Put("/", app.UpdateDriver)
+			r.Route("/driver", func(r chi.Router) {
+				r.Put("/", app.UpdateDriver)
+			})
 		})
 	})
 	////////////////////////////////
