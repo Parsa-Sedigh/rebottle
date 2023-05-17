@@ -59,8 +59,6 @@ paths:
                       required: true
                       type: string
                       default: "11111111"
-#              $ref: './schemas/SignupDriverPayload.yaml'
-
 
 
       responses:
