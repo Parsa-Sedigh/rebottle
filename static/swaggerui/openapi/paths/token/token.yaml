@@ -1,8 +1,8 @@
 post:
   tags:
     - auth
-  summary: "signup user and send OTP"
-  description: "signup user and send OTP"
+  summary: "get access and refresh tokens"
+  description: "get access and refresh tokens"
   requestBody:
     required: true
     content:

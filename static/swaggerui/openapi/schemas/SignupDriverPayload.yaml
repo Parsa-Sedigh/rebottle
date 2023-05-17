@@ -1,0 +1,9 @@
+allOf:
+  - $ref: './SignupBasePayload.yaml'
+    type: object
+    properties:
+      license_no:
+        description: license number
+        required: true
+        type: string
+        default: "11111111"

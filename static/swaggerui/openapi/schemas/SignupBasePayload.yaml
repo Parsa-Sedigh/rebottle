@@ -1,0 +1,61 @@
+properties:
+  phone:
+    description: user phone number
+    required: true
+    type: string
+    default: "09111111111"
+  first_name:
+    description: first name
+    required: true
+    type: string
+    default: "paari"
+  last_name:
+    description: last name
+    required: true
+    type: string
+    default: "paari2"
+  email:
+    description: email
+    required: false
+    type: string
+    default: "test@test.com"
+  password:
+    description: password
+    required: true
+    type: string
+    default: "test@test.com"
+  province:
+    description: province
+    required: true
+    type: string
+    default: Tehran
+  city:
+    description: city
+    required: true
+    type: string
+    default: Tehran
+  street:
+    description: street
+    required: true
+    type: string
+    default: some street
+  alley:
+    description: alley
+    required: true
+    type: string
+    default: some alley
+  apartment_plate:
+    description: apartment plate
+    required: true
+    type: number
+    default: 14
+  apartment_no:
+    description: apartment number
+    required: true
+    type: number
+    default: 3
+  postal_code:
+    description: postal code
+    required: true
+    type: string
+    default: 11222222

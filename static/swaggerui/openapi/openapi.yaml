@@ -4,11 +4,12 @@ info:
   description: Rebottle api
   version: 1.0.0
 servers:
-  - url: 'http://127.0.0.1:5001/v1'
+  - url: 'http://localhost:5001/v1'
 tags:
   - name: user
   - name: auth
   - name: pickup
+  - name: driver
     description: user's pickup
 
 components:
@@ -21,6 +22,10 @@ components:
       $ref: './schemas/UserEmailStatus.yaml'
     DriverStatus:
       $ref: './schemas/DriverStatus.yaml'
+    SignupBasePayload:
+      $ref: './schemas/SignupBasePayload.yaml'
+    SignupDriverPayload:
+      $ref: './schemas/SignupDriverPayload.yaml'
 
   responses:
     GeneralResponse:
@@ -32,106 +37,60 @@ paths:
     $ref: './paths/user/user.yaml'
 
   /signup:
-    #    $ref: './paths/signup/signup.yaml'
+    $ref: './paths/signup/signup.yaml'
+
+  /signup-driver:
     post:
       tags:
         - auth
-      summary: "signup user and send OTP"
-      description: "signup user and send OTP"
+      summary: driver signup
+      description: driver signup
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              properties:
-                phone:
-                  description: user phone number
-                  required: true
-                  type: string
-                  default: "09111111111"
-                first_name:
-                  description: first name
-                  required: true
-                  type: string
-                  default: "paari"
-                last_name:
-                  description: last name
-                  required: true
-                  type: string
-                  default: "paari2"
-                email:
-                  description: email
-                  required: false
-                  type: string
-                  default: "test@test.com"
-                password:
-                  description: password
-                  required: true
-                  type: string
-                  default: "test@test.com"
-                province:
-                  description: province
-                  required: true
-                  type: string
-                  default: Tehran
-                city:
-                  description: city
-                  required: true
-                  type: string
-                  default: Tehran
-                street:
-                  description: street
-                  required: true
-                  type: string
-                  default: some street
-                alley:
-                  description: alley
-                  required: true
-                  type: string
-                  default: some alley
-                apartment_plate:
-                  description: apartment plate
-                  required: true
-                  type: number
-                  default: 14
-                apartment_no:
-                  description: apartment number
-                  required: true
-                  type: number
-                  default: 3
-                postal_code:
-                  description: postal code
-                  required: true
-                  type: string
-                  default: 11222222
+              allOf:
+                - $ref: './schemas/SignupBasePayload.yaml'
+                - type: object
+                  properties:
+                    license_no:
+                      description: license number
+                      required: true
+                      type: string
+                      default: "11111111"
+#              $ref: './schemas/SignupDriverPayload.yaml'
+
 
 
       responses:
-        "200":
-          description: "success response"
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: boolean
-                  message:
-                    type: string
-                  data:
-                    type: object
-        "400":
-          $ref: '../../responses/GeneralResponse.yaml'
+
+
 
   /verify-signup:
     $ref: './paths/verify-signup/verify-signup.yaml'
 
+  /verify-signup-driver:
+    $ref: './paths/verify-signup-driver/verify-signup-driver.yaml'
+
   /login:
     $ref: './paths/login/login.yaml'
+
+  /token:
+    $ref: './paths/token/token.yaml'
 
   /pickup:
     $ref: './paths/pickup/pickups.yaml'
 
   "/pickup/{pickupId}":
     $ref: './paths/pickup/pickup.yaml'
+
+  /driver/{id}:
+    put:
+      tags:
+        - driver
+      summary: "Update driver info"
+      description: "Update driver info"
+      responses:
+        "200":
 

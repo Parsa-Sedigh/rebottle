@@ -1,0 +1,7 @@
+post:
+  tags:
+    - auth
+  summary: "verify driver signup through OTP"
+  description: "verify driver signup through OTP"
+  responses:
+    "200":
