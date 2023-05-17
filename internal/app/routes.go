@@ -52,7 +52,7 @@ func (app *application) routes() http.Handler {
 			})
 
 			r.Route("/driver", func(r chi.Router) {
-				r.Put("/", app.UpdateDriver)
+				r.Put("/{id}", app.UpdateDriver)
 			})
 		})
 	})

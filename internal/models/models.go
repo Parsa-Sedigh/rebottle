@@ -532,6 +532,7 @@ func (m *Models) GetDriverByPhone(phone string) (Driver, error) {
 }
 
 type UpdateDriverData struct {
+	ID             int
 	FirstName      string
 	LastName       string
 	Email          string
@@ -552,7 +553,8 @@ func (m *Models) UpdateDriver(data UpdateDriverData) (Driver, error) {
 	var d Driver
 
 	stmt := `UPDATE driver SET first_name = $1, last_name = $2, email = $3, license_no = $4,
-                  province = $5, city = $6, street = $7, alley = $8, apartment_plate = $9, apartment_no = $10, postal_code = $11`
+                  province = $5, city = $6, street = $7, alley = $8, apartment_plate = $9, apartment_no = $10, postal_code = $11
+                  WHERE id = $12`
 	row := m.DB.QueryRowContext(ctx, stmt,
 		data.FirstName,
 		data.LastName,
@@ -565,6 +567,7 @@ func (m *Models) UpdateDriver(data UpdateDriverData) (Driver, error) {
 		data.ApartmentPlate,
 		data.ApartmentNo,
 		data.PostalCode,
+		data.ID,
 	)
 	err := m.scanDriverRow(row, &d)
 	if err != nil {
